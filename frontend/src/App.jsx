@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import './App.css'
 
-const API_URL = 'https://bundle-haggler-sneezing.ngrok-free.dev'
+const API_URL = 'http://127.0.0.1:8000'
 
 function App() {
   const [transcript, setTranscript] = useState('')
