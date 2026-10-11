@@ -23,6 +23,8 @@ from src.daraja import (
     initiate_direct_c2b,
 )
 
+
+def cli():
     parser = argparse.ArgumentParser(description="Speech-to-USSD Pipeline")
     parser.add_argument("--audio", help="Path to audio file")
     parser.add_argument("--record", action="store_true", help="Record a voice command from the mic")

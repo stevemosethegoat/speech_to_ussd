@@ -7,7 +7,7 @@ Uses sounddevice to capture from the microphone, then writes a 16 kHz mono
 import wave
 from pathlib import Path
 
-SAMPLE_RATE = 16000
+SAMPLE_RATE = 48000
 
 
 def record_audio(duration=5, sample_rate=SAMPLE_RATE, channels=1) -> bytes:
