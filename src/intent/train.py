@@ -19,6 +19,7 @@ def train_all(X_train, y_train, X_val, y_val, model_dir="models/intent_classifie
     }
 
     os.makedirs(model_dir, exist_ok=True)
+ 
 
     for name, model in models.items():
         model.fit(X_train, y_train)
@@ -26,5 +27,4 @@ def train_all(X_train, y_train, X_val, y_val, model_dir="models/intent_classifie
         acc = accuracy_score(y_val, preds)
         print(f"{name} validation accuracy: {acc:.4f}")
         joblib.dump(model, os.path.join(model_dir, f"{name}.pkl"))
-
     return models

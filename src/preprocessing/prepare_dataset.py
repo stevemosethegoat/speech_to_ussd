@@ -8,7 +8,6 @@ def load_and_audit_data(project_root: Path):
     """Loads resampled speech transcripts and synthetic intent dataset, performing quality checks."""
     speech_csv = project_root / "data" / "processed" / "cleaned_speech_transcripts.csv"
     synthetic_csv = project_root / "data" / "metadata" / "synthetic_intent_dataset.csv"
-
     # 1. Load Speech Data
     if not speech_csv.exists():
         raise FileNotFoundError(f"Run audio_preprocessor.py first. Missing: {speech_csv}")
@@ -16,7 +15,6 @@ def load_and_audit_data(project_root: Path):
     df_speech = pd.read_csv(speech_csv)
     # Filter only successfully resampled audio files
     df_speech_valid = df_speech[df_speech["is_resampled_16k"] == True].copy()
-    
     # Clean text transcripts using text_cleaner logic
     df_speech_valid["clean_transcript"] = df_speech_valid["transcript"].apply(clean_swahili_text)
     df_speech_valid["is_synthetic"] = False
@@ -25,7 +23,6 @@ def load_and_audit_data(project_root: Path):
     speech_data = df_speech_valid[[
         "file_id", "transcript", "clean_transcript", "resampled_audio_path", "is_synthetic"
     ]].rename(columns={"resampled_audio_path": "audio_path"})
-
     # 2. Load Synthetic NLU Data
     if not synthetic_csv.exists():
         raise FileNotFoundError(f"Run augment_text.py first. Missing: {synthetic_csv}")
@@ -50,7 +47,12 @@ def create_stratified_splits(df_syn: pd.DataFrame, output_dir: Path, random_seed
     train_df, temp_df = train_test_split(
         df_syn, test_size=0.20, random_state=random_seed, stratify=df_syn["intent"]
     )
-
+    print("--tempdf---")
+    print(temp_df)
+    print("--traindf---")
+    print(train_df)
+    print("---synthetic---")
+    print(df_syn["intent"])
     # Second split: Split remaining 20% into equal 10% val and 10% test
     val_df, test_df = train_test_split(
         temp_df, test_size=0.50, random_state=random_seed, stratify=temp_df["intent"]

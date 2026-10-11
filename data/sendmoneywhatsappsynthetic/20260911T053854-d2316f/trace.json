@@ -1,0 +1,44 @@
+{
+  "run_id": "20260911T053854-d2316f",
+  "timestamp": "2026-09-11T05:38:54.511218+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260911T053854-d2316f/audio.webm",
+  "whisper_transcript": "S-Send 100 to Abdi.",
+  "normalized_text": "ssend 100 to abdi",
+  "intent": "send_money",
+  "confidence": 0.5854351904853751,
+  "slots": {
+    "amount": "100",
+    "name": "abdi",
+    "recipient": "abdi"
+  },
+  "ussd_menu": "Send KSh 100 to abdi?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> abdi -> 100",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmpgxzyhzdh.webm"
+    },
+    {
+      "step": "asr",
+      "value": "S-Send 100 to Abdi."
+    },
+    {
+      "step": "normalized_text",
+      "value": "ssend 100 to abdi"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5854351904853751
+    },
+    {
+      "step": "slots",
+      "value": "amount: 100, name: abdi, recipient: abdi"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 100 to abdi?\n1. Yes\n2. No"
+    }
+  ]
+}

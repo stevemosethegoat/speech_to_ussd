@@ -1,0 +1,40 @@
+{
+  "run_id": "20260908T160152-299d1d",
+  "timestamp": "2026-09-08T16:01:52.981495+00:00",
+  "source": "mic",
+  "audio_path": "data/traces/20260908T160152-299d1d/audio.wav",
+  "whisper_transcript": "Tuma kai fanle kuwa John",
+  "normalized_text": "tuma kai fanle kuwa john",
+  "intent": "send_money",
+  "confidence": 0.5387601159680702,
+  "slots": {},
+  "ussd_menu": "Send KSh [AMOUNT] to [RECIPIENT]?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> [RECIPIENT] -> [AMOUNT]",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "data/raw/recordings/recording_temp.wav"
+    },
+    {
+      "step": "asr",
+      "value": "Tuma kai fanle kuwa John"
+    },
+    {
+      "step": "normalized_text",
+      "value": "tuma kai fanle kuwa john"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5387601159680702
+    },
+    {
+      "step": "slots",
+      "value": {}
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh [AMOUNT] to [RECIPIENT]?\n1. Yes\n2. No"
+    }
+  ]
+}

@@ -10,7 +10,7 @@ AMOUNT_NORM_MAP = {
     "bob mbao": "20",
     "soo mbili": "200",
     "elfu mbili": "2000",
-    "punch": "100",
+    "punch": "500",
     "mbao": "20",
     "chapaa soo tano": "500",
     "Ksh 500": "500",

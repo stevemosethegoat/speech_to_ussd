@@ -1,0 +1,48 @@
+{
+  "run_id": "20260908T162518-91e27a",
+  "timestamp": "2026-09-08T16:25:18.487188+00:00",
+  "source": "mic",
+  "audio_path": "data/traces/20260908T162518-91e27a/audio.wav",
+  "whisper_transcript": "2.5M Kwa John",
+  "normalized_text": "25m kwa john",
+  "intent": "send_money",
+  "confidence": 0.5387601159680702,
+  "slots": {
+    "amount": "25",
+    "name": "john",
+    "recipient": "john"
+  },
+  "ussd_menu": "Send KSh 25 to john?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> john -> 25",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "data/raw/recordings/recording_temp.wav"
+    },
+    {
+      "step": "asr",
+      "value": "2.5M Kwa John"
+    },
+    {
+      "step": "normalized_text",
+      "value": "25m kwa john"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5387601159680702
+    },
+    {
+      "step": "slots",
+      "value": {
+        "amount": "25",
+        "name": "john",
+        "recipient": "john"
+      }
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 25 to john?\n1. Yes\n2. No"
+    }
+  ]
+}

@@ -24,6 +24,7 @@ def _recipient(slots):
     )
 
 
+
 def _amount(slots):
     return slots.get("amount") or "[AMOUNT]"
 

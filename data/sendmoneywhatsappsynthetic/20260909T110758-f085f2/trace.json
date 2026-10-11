@@ -1,0 +1,44 @@
+{
+  "run_id": "20260909T110758-f085f2",
+  "timestamp": "2026-09-09T11:07:58.911269+00:00",
+  "source": "mic",
+  "audio_path": "data/traces/20260909T110758-f085f2/audio.wav",
+  "whisper_transcript": "Kwa kwa 5,000 kilijon",
+  "normalized_text": "kwa kwa 5000 kilijon",
+  "intent": "send_money",
+  "confidence": 0.5387601159680702,
+  "slots": {
+    "amount": "5000",
+    "name": "kwa",
+    "recipient": "kwa"
+  },
+  "ussd_menu": "Send KSh 5000 to kwa?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> kwa -> 5000",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "data/raw/recordings/recording_temp.wav"
+    },
+    {
+      "step": "asr",
+      "value": "Kwa kwa 5,000 kilijon"
+    },
+    {
+      "step": "normalized_text",
+      "value": "kwa kwa 5000 kilijon"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5387601159680702
+    },
+    {
+      "step": "slots",
+      "value": "amount: 5000, name: kwa, recipient: kwa"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 5000 to kwa?\n1. Yes\n2. No"
+    }
+  ]
+}

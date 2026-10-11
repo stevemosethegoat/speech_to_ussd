@@ -1,0 +1,48 @@
+{
+  "run_id": "20260907T165940-ca1a4f",
+  "timestamp": "2026-09-07T16:59:40.140652+00:00",
+  "source": "mic",
+  "audio_path": "data/traces/20260907T165940-ca1a4f/audio.wav",
+  "whisper_transcript": "Sain 500 silings to John.",
+  "normalized_text": "sain 500 silings to john",
+  "intent": "send_money",
+  "confidence": 0.5739830911534266,
+  "slots": {
+    "amount": "500",
+    "name": "john",
+    "recipient": "john"
+  },
+  "ussd_menu": "Send KSh 500 to john?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> john -> 500",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "data/raw/recordings/recording_temp.wav"
+    },
+    {
+      "step": "asr",
+      "value": "Sain 500 silings to John."
+    },
+    {
+      "step": "normalized_text",
+      "value": "sain 500 silings to john"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5739830911534266
+    },
+    {
+      "step": "slots",
+      "value": {
+        "amount": "500",
+        "name": "john",
+        "recipient": "john"
+      }
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 500 to john?\n1. Yes\n2. No"
+    }
+  ]
+}

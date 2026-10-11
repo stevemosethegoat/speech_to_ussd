@@ -21,6 +21,7 @@ Stage 1:
         --batch-size 1
 
 Stage 2:
+#here we should use  the audio whatsapp data  which is the send money whatsapp synthetic to now fine tune on the second part of the  model directly
 
     python -m src.asr.finetune_whisper \
         --stage 2 \

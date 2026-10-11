@@ -1,0 +1,44 @@
+{
+  "run_id": "20260905T115525-5ec4ad",
+  "timestamp": "2026-09-05T11:55:25.618902+00:00",
+  "source": "text",
+  "audio_path": "data/traces/20260905T115525-5ec4ad/audio.wav",
+  "whisper_transcript": "send 5000 to john",
+  "normalized_text": "send 5000 to john",
+  "intent": "send_money",
+  "confidence": 0.6213678100390172,
+  "slots": {
+    "amount": "5000",
+    "name": "john",
+    "recipient": "john"
+  },
+  "ussd_menu": "Send KSh 5000 to john?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> john -> 5000",
+  "steps": [
+    {
+      "step": "asr",
+      "value": "send 5000 to john"
+    },
+    {
+      "step": "normalized_text",
+      "value": "send 5000 to john"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.6213678100390172
+    },
+    {
+      "step": "slots",
+      "value": {
+        "amount": "5000",
+        "name": "john",
+        "recipient": "john"
+      }
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 5000 to john?\n1. Yes\n2. No"
+    }
+  ]
+}

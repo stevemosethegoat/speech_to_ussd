@@ -1,0 +1,42 @@
+{
+  "run_id": "20260909T084958-abdb16",
+  "timestamp": "2026-09-09T08:49:58.287738+00:00",
+  "source": "mic",
+  "audio_path": "data/traces/20260909T084958-abdb16/audio.wav",
+  "whisper_transcript": "San 500 to 20",
+  "normalized_text": "san 500 to 20",
+  "intent": "send_money",
+  "confidence": 0.5512841408131066,
+  "slots": {
+    "amount": "500"
+  },
+  "ussd_menu": "Send KSh 500 to [RECIPIENT]?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> [RECIPIENT] -> 500",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "data/raw/recordings/recording_temp.wav"
+    },
+    {
+      "step": "asr",
+      "value": "San 500 to 20"
+    },
+    {
+      "step": "normalized_text",
+      "value": "san 500 to 20"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5512841408131066
+    },
+    {
+      "step": "slots",
+      "value": "amount: 500"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 500 to [RECIPIENT]?\n1. Yes\n2. No"
+    }
+  ]
+}

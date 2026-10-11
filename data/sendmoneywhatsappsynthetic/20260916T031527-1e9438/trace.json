@@ -1,0 +1,44 @@
+{
+  "run_id": "20260916T031527-1e9438",
+  "timestamp": "2026-09-16T03:15:27.699333+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260916T031527-1e9438/audio.webm",
+  "whisper_transcript": "Tuma one hundred kwa Mary",
+  "normalized_text": "tuma one hundred kwa mary",
+  "intent": "send_money",
+  "confidence": 0.5396251582352309,
+  "slots": {
+    "name": "mary",
+    "amount": "100",
+    "recipient": "mary"
+  },
+  "ussd_menu": "Send KSh 100 to mary?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> mary -> 100",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmprxua2z_u.webm"
+    },
+    {
+      "step": "asr",
+      "value": "Tuma one hundred kwa Mary"
+    },
+    {
+      "step": "normalized_text",
+      "value": "tuma one hundred kwa mary"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5396251582352309
+    },
+    {
+      "step": "slots",
+      "value": "name: mary, amount: 100, recipient: mary"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 100 to mary?\n1. Yes\n2. No"
+    }
+  ]
+}

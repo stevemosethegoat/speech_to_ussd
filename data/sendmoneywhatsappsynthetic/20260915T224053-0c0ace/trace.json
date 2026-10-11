@@ -1,0 +1,40 @@
+{
+  "run_id": "20260915T224053-0c0ace",
+  "timestamp": "2026-09-15T22:40:53.520546+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260915T224053-0c0ace/audio.webm",
+  "whisper_transcript": "wa hivyo",
+  "normalized_text": "wa hivyo",
+  "intent": "send_money",
+  "confidence": 0.5009667488505406,
+  "slots": {},
+  "ussd_menu": "Send KSh [AMOUNT] to [RECIPIENT]?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> [RECIPIENT] -> [AMOUNT]",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmpz0tntrse.webm"
+    },
+    {
+      "step": "asr",
+      "value": "wa hivyo"
+    },
+    {
+      "step": "normalized_text",
+      "value": "wa hivyo"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5009667488505406
+    },
+    {
+      "step": "slots",
+      "value": ""
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh [AMOUNT] to [RECIPIENT]?\n1. Yes\n2. No"
+    }
+  ]
+}

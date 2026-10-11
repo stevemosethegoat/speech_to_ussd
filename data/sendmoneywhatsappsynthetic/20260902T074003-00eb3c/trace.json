@@ -1,0 +1,40 @@
+{
+  "run_id": "20260902T074003-00eb3c",
+  "timestamp": "2026-09-02T07:40:03.875949+00:00",
+  "source": "mic",
+  "audio_path": "data/traces/20260902T074003-00eb3c/audio.wav",
+  "whisper_transcript": "i nambuja, tu mape sa poha John",
+  "normalized_text": "i nambuja tu mape sa poha john",
+  "intent": "send_money",
+  "confidence": 0.5387601159680702,
+  "slots": {},
+  "ussd_menu": "Send [AMOUNT] TZS to [RECIPIENT]?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> [RECIPIENT] -> [AMOUNT]",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "data/raw/recordings/recording_temp.wav"
+    },
+    {
+      "step": "asr",
+      "value": "i nambuja, tu mape sa poha John"
+    },
+    {
+      "step": "normalized_text",
+      "value": "i nambuja tu mape sa poha john"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5387601159680702
+    },
+    {
+      "step": "slots",
+      "value": {}
+    },
+    {
+      "step": "ussd",
+      "value": "Send [AMOUNT] TZS to [RECIPIENT]?\n1. Yes\n2. No"
+    }
+  ]
+}

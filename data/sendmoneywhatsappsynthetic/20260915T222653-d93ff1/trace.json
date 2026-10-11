@@ -1,0 +1,44 @@
+{
+  "run_id": "20260915T222653-d93ff1",
+  "timestamp": "2026-09-15T22:26:53.717254+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260915T222653-d93ff1/audio.webm",
+  "whisper_transcript": "Tuma 100 kwa zone.",
+  "normalized_text": "tuma 100 kwa zone",
+  "intent": "send_money",
+  "confidence": 0.5009667488505406,
+  "slots": {
+    "amount": "100",
+    "name": "zone",
+    "recipient": "zone"
+  },
+  "ussd_menu": "Send KSh 100 to zone?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> zone -> 100",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmp8om0jqka.webm"
+    },
+    {
+      "step": "asr",
+      "value": "Tuma 100 kwa zone."
+    },
+    {
+      "step": "normalized_text",
+      "value": "tuma 100 kwa zone"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5009667488505406
+    },
+    {
+      "step": "slots",
+      "value": "amount: 100, name: zone, recipient: zone"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 100 to zone?\n1. Yes\n2. No"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "run_id": "20260909T195250-4df837",
+  "timestamp": "2026-09-09T19:52:50.923808+00:00",
+  "source": "web",
+  "audio_path": "data/traces/20260909T195250-4df837/audio.wav",
+  "whisper_transcript": "tuma elfu tano kwa John",
+  "normalized_text": "tuma elfu tano kwa john",
+  "intent": "send_money",
+  "confidence": 0.5387601159680702,
+  "slots": {
+    "name": "john",
+    "amount": "5000",
+    "recipient": "john"
+  },
+  "ussd_menu": "Send KSh 5000 to john?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> john -> 5000",
+  "steps": [
+    {
+      "step": "asr",
+      "value": "tuma elfu tano kwa John"
+    },
+    {
+      "step": "normalized_text",
+      "value": "tuma elfu tano kwa john"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5387601159680702
+    },
+    {
+      "step": "slots",
+      "value": "name: john, amount: 5000, recipient: john"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 5000 to john?\n1. Yes\n2. No"
+    }
+  ]
+}

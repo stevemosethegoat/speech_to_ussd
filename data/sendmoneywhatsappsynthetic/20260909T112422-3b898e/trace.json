@@ -1,0 +1,40 @@
+{
+  "run_id": "20260909T112422-3b898e",
+  "timestamp": "2026-09-09T11:24:22.364251+00:00",
+  "source": "mic",
+  "audio_path": "data/traces/20260909T112422-3b898e/audio.wav",
+  "whisper_transcript": "Kwaifanya",
+  "normalized_text": "kwaifanya",
+  "intent": "send_money",
+  "confidence": 0.5009667488505406,
+  "slots": {},
+  "ussd_menu": "Send KSh [AMOUNT] to [RECIPIENT]?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> [RECIPIENT] -> [AMOUNT]",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "data/raw/recordings/recording_temp.wav"
+    },
+    {
+      "step": "asr",
+      "value": "Kwaifanya"
+    },
+    {
+      "step": "normalized_text",
+      "value": "kwaifanya"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5009667488505406
+    },
+    {
+      "step": "slots",
+      "value": ""
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh [AMOUNT] to [RECIPIENT]?\n1. Yes\n2. No"
+    }
+  ]
+}

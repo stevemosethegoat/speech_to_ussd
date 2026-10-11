@@ -33,7 +33,7 @@ BASE_FINANCIAL_MAP = {
     "bob mbao": "20",
     "chapaa": "money",
     "ganji": "money",
-    "punch": "100",
+    "punch": "500",
     "ngiri": "1000",
     "mbao": "20",
     "soo": "100",

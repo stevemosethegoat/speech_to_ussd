@@ -39,7 +39,7 @@ AMOUNT_PHRASES = [
     ("fifty bob", "50"),
     ("bob mbao", "20"),
     ("chapaa soo tano", "500"),
-    ("punch", "100"),
+    ("punch", "500"),
     ("mbao", "20"),
 ]
 

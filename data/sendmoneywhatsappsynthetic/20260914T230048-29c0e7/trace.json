@@ -1,0 +1,42 @@
+{
+  "run_id": "20260914T230048-29c0e7",
+  "timestamp": "2026-09-14T23:00:48.827728+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260914T230048-29c0e7/audio.webm",
+  "whisper_transcript": "Ma 500 kuat zon",
+  "normalized_text": "ma 500 kuat zon",
+  "intent": "send_money",
+  "confidence": 0.5009667488505406,
+  "slots": {
+    "amount": "500"
+  },
+  "ussd_menu": "Send KSh 500 to [RECIPIENT]?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> [RECIPIENT] -> 500",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmpn23my3id.webm"
+    },
+    {
+      "step": "asr",
+      "value": "Ma 500 kuat zon"
+    },
+    {
+      "step": "normalized_text",
+      "value": "ma 500 kuat zon"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5009667488505406
+    },
+    {
+      "step": "slots",
+      "value": "amount: 500"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 500 to [RECIPIENT]?\n1. Yes\n2. No"
+    }
+  ]
+}

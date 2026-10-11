@@ -1,0 +1,44 @@
+{
+  "run_id": "20260916T023355-ea5284",
+  "timestamp": "2026-09-16T02:33:55.132391+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260916T023355-ea5284/audio.webm",
+  "whisper_transcript": "Tuma five hundred kwa joon",
+  "normalized_text": "tuma five hundred kwa joon",
+  "intent": "send_money",
+  "confidence": 0.5009667488505406,
+  "slots": {
+    "name": "joon",
+    "amount": "100",
+    "recipient": "joon"
+  },
+  "ussd_menu": "Send KSh 100 to joon?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> joon -> 100",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmpnv3pupcz.webm"
+    },
+    {
+      "step": "asr",
+      "value": "Tuma five hundred kwa joon"
+    },
+    {
+      "step": "normalized_text",
+      "value": "tuma five hundred kwa joon"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5009667488505406
+    },
+    {
+      "step": "slots",
+      "value": "name: joon, amount: 100, recipient: joon"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 100 to joon?\n1. Yes\n2. No"
+    }
+  ]
+}

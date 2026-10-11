@@ -1,0 +1,44 @@
+{
+  "run_id": "20260907T130059-2480d0",
+  "timestamp": "2026-09-07T13:00:59.008704+00:00",
+  "source": "mic",
+  "audio_path": "data/traces/20260907T130059-2480d0/audio.wav",
+  "whisper_transcript": "Stand 500 g.",
+  "normalized_text": "stand 500 g",
+  "intent": "send_money",
+  "confidence": 0.5009667488505406,
+  "slots": {
+    "amount": "500"
+  },
+  "ussd_menu": "Send KSh 500 to [RECIPIENT]?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> [RECIPIENT] -> 500",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "data/raw/recordings/recording_temp.wav"
+    },
+    {
+      "step": "asr",
+      "value": "Stand 500 g."
+    },
+    {
+      "step": "normalized_text",
+      "value": "stand 500 g"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5009667488505406
+    },
+    {
+      "step": "slots",
+      "value": {
+        "amount": "500"
+      }
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 500 to [RECIPIENT]?\n1. Yes\n2. No"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "run_id": "20260915T225830-c85202",
+  "timestamp": "2026-09-15T22:58:30.076251+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260915T225830-c85202/audio.webm",
+  "whisper_transcript": "Tuma five hundred kwa dhun",
+  "normalized_text": "tuma five hundred kwa dhun",
+  "intent": "send_money",
+  "confidence": 0.5009667488505406,
+  "slots": {
+    "name": "dhun",
+    "amount": "100",
+    "recipient": "dhun"
+  },
+  "ussd_menu": "Send KSh 100 to dhun?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> dhun -> 100",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmpvgog_stf.webm"
+    },
+    {
+      "step": "asr",
+      "value": "Tuma five hundred kwa dhun"
+    },
+    {
+      "step": "normalized_text",
+      "value": "tuma five hundred kwa dhun"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5009667488505406
+    },
+    {
+      "step": "slots",
+      "value": "name: dhun, amount: 100, recipient: dhun"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 100 to dhun?\n1. Yes\n2. No"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "run_id": "20260914T205844-c7a997",
+  "timestamp": "2026-09-14T20:58:44.711763+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260914T205844-c7a997/audio.webm",
+  "whisper_transcript": "tu ma five hundred kwadzim",
+  "normalized_text": "tu ma five hundred kwadzim",
+  "intent": "send_money",
+  "confidence": 0.5009667488505406,
+  "slots": {
+    "amount": "100"
+  },
+  "ussd_menu": "Send KSh 100 to [RECIPIENT]?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> [RECIPIENT] -> 100",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmpg8etywug.webm"
+    },
+    {
+      "step": "asr",
+      "value": "tu ma five hundred kwadzim"
+    },
+    {
+      "step": "normalized_text",
+      "value": "tu ma five hundred kwadzim"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5009667488505406
+    },
+    {
+      "step": "slots",
+      "value": "amount: 100"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 100 to [RECIPIENT]?\n1. Yes\n2. No"
+    }
+  ]
+}

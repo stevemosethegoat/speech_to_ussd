@@ -1,0 +1,44 @@
+{
+  "run_id": "20260915T204120-ae62b3",
+  "timestamp": "2026-09-15T20:41:20.647003+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260915T204120-ae62b3/audio.webm",
+  "whisper_transcript": "Tuma 500 kwa John",
+  "normalized_text": "tuma 500 kwa john",
+  "intent": "send_money",
+  "confidence": 0.527717350689032,
+  "slots": {
+    "amount": "500",
+    "name": "john",
+    "recipient": "john"
+  },
+  "ussd_menu": "Send KSh 500 to john?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> john -> 500",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmpa05sdhl6.webm"
+    },
+    {
+      "step": "asr",
+      "value": "Tuma 500 kwa John"
+    },
+    {
+      "step": "normalized_text",
+      "value": "tuma 500 kwa john"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.527717350689032
+    },
+    {
+      "step": "slots",
+      "value": "amount: 500, name: john, recipient: john"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 500 to john?\n1. Yes\n2. No"
+    }
+  ]
+}

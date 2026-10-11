@@ -1,0 +1,44 @@
+{
+  "run_id": "20260914T203543-2e83b9",
+  "timestamp": "2026-09-14T20:35:43.827489+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260914T203543-2e83b9/audio.webm",
+  "whisper_transcript": "Tuma five hundred kwa zen",
+  "normalized_text": "tuma five hundred kwa zen",
+  "intent": "send_money",
+  "confidence": 0.5009667488505406,
+  "slots": {
+    "name": "zen",
+    "amount": "100",
+    "recipient": "zen"
+  },
+  "ussd_menu": "Send KSh 100 to zen?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> zen -> 100",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmpmyap55hl.webm"
+    },
+    {
+      "step": "asr",
+      "value": "Tuma five hundred kwa zen"
+    },
+    {
+      "step": "normalized_text",
+      "value": "tuma five hundred kwa zen"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5009667488505406
+    },
+    {
+      "step": "slots",
+      "value": "name: zen, amount: 100, recipient: zen"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 100 to zen?\n1. Yes\n2. No"
+    }
+  ]
+}

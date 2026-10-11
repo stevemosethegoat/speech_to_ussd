@@ -1,0 +1,44 @@
+{
+  "run_id": "20260914T193208-b37635",
+  "timestamp": "2026-09-14T19:32:08.066469+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260914T193208-b37635/audio.webm",
+  "whisper_transcript": "Tuma five hundred kwa juma",
+  "normalized_text": "tuma five hundred kwa juma",
+  "intent": "send_money",
+  "confidence": 0.5009667488505406,
+  "slots": {
+    "name": "juma",
+    "amount": "100",
+    "recipient": "juma"
+  },
+  "ussd_menu": "Send KSh 100 to juma?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> juma -> 100",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmp95nv5wg3.webm"
+    },
+    {
+      "step": "asr",
+      "value": "Tuma five hundred kwa juma"
+    },
+    {
+      "step": "normalized_text",
+      "value": "tuma five hundred kwa juma"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5009667488505406
+    },
+    {
+      "step": "slots",
+      "value": "name: juma, amount: 100, recipient: juma"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 100 to juma?\n1. Yes\n2. No"
+    }
+  ]
+}

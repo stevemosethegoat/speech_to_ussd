@@ -1,0 +1,42 @@
+{
+  "run_id": "20260915T211739-e66adb",
+  "timestamp": "2026-09-15T21:17:39.371670+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260915T211739-e66adb/audio.webm",
+  "whisper_transcript": "Nuwa airtime 500",
+  "normalized_text": "nuwa airtime 500",
+  "intent": "send_money",
+  "confidence": 0.5009667488505406,
+  "slots": {
+    "amount": "500"
+  },
+  "ussd_menu": "Send KSh 500 to [RECIPIENT]?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> [RECIPIENT] -> 500",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmps6mn82om.webm"
+    },
+    {
+      "step": "asr",
+      "value": "Nuwa airtime 500"
+    },
+    {
+      "step": "normalized_text",
+      "value": "nuwa airtime 500"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5009667488505406
+    },
+    {
+      "step": "slots",
+      "value": "amount: 500"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 500 to [RECIPIENT]?\n1. Yes\n2. No"
+    }
+  ]
+}

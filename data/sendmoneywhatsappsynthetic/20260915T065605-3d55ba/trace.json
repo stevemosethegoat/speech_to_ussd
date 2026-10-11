@@ -1,0 +1,42 @@
+{
+  "run_id": "20260915T065605-3d55ba",
+  "timestamp": "2026-09-15T06:56:05.933270+00:00",
+  "source": "file",
+  "audio_path": "data/traces/20260915T065605-3d55ba/audio.webm",
+  "whisper_transcript": "Tuma 500 kwajon",
+  "normalized_text": "tuma 500 kwajon",
+  "intent": "send_money",
+  "confidence": 0.5009667488505406,
+  "slots": {
+    "amount": "500"
+  },
+  "ussd_menu": "Send KSh 500 to [RECIPIENT]?\n1. Yes\n2. No",
+  "ussd_sequence": "*334# -> 1 -> [RECIPIENT] -> 500",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "/tmp/tmpfhq9m1ht.webm"
+    },
+    {
+      "step": "asr",
+      "value": "Tuma 500 kwajon"
+    },
+    {
+      "step": "normalized_text",
+      "value": "tuma 500 kwajon"
+    },
+    {
+      "step": "intent",
+      "value": "send_money",
+      "confidence": 0.5009667488505406
+    },
+    {
+      "step": "slots",
+      "value": "amount: 500"
+    },
+    {
+      "step": "ussd",
+      "value": "Send KSh 500 to [RECIPIENT]?\n1. Yes\n2. No"
+    }
+  ]
+}

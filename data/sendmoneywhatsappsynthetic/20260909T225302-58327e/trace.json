@@ -1,0 +1,40 @@
+{
+  "run_id": "20260909T225302-58327e",
+  "timestamp": "2026-09-09T22:53:02.503635+00:00",
+  "source": "text",
+  "audio_path": "",
+  "whisper_transcript": "elfu tatu kwa amina",
+  "normalized_text": "elfu tatu kwa amina",
+  "intent": "check_balance",
+  "confidence": 0.54,
+  "slots": {
+    "name": "amina",
+    "amount": "3000",
+    "recipient": "amina"
+  },
+  "ussd_menu": "Your current balance is KSh 3000.",
+  "ussd_sequence": "*334# -> 6 -> 1",
+  "steps": [
+    {
+      "step": "asr",
+      "value": "elfu tatu kwa amina"
+    },
+    {
+      "step": "normalized_text",
+      "value": "elfu tatu kwa amina"
+    },
+    {
+      "step": "intent",
+      "value": "check_balance",
+      "confidence": 0.54
+    },
+    {
+      "step": "slots",
+      "value": "name: amina, amount: 3000, recipient: amina"
+    },
+    {
+      "step": "ussd",
+      "value": "Your current balance is KSh 3000."
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "run_id": "20260831T100701-364b34",
+  "timestamp": "2026-08-31T10:07:01.806425+00:00",
+  "source": "mic",
+  "audio_path": "data/traces/20260831T100701-364b34/audio.wav",
+  "whisper_transcript": "Hi, my name is Steve. Moxel.",
+  "normalized_text": "hi my name is steve moxel",
+  "intent": "check_balance",
+  "confidence": 0.5688157839775696,
+  "slots": {},
+  "ussd_menu": "Your current balance is 0 TZS.",
+  "ussd_sequence": "*334# -> 6 -> 1",
+  "steps": [
+    {
+      "step": "audio",
+      "value": "data/raw/recordings/recording_temp.wav"
+    },
+    {
+      "step": "asr",
+      "value": "Hi, my name is Steve. Moxel."
+    },
+    {
+      "step": "normalized_text",
+      "value": "hi my name is steve moxel"
+    },
+    {
+      "step": "intent",
+      "value": "check_balance",
+      "confidence": 0.5688157839775696
+    },
+    {
+      "step": "slots",
+      "value": {}
+    },
+    {
+      "step": "ussd",
+      "value": "Your current balance is 0 TZS."
+    }
+  ]
+}
