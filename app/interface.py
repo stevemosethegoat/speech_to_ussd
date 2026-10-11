@@ -12,7 +12,18 @@ Modes:
 import argparse
 import json
 
+from src.daraja import (
+    stk_push,
+    register_c2b_urls,
+    b2c_payment,
+    transaction_status_query,
+    initiate_c2c_transfer,
+    continue_c2c_transfer,
+    initiate_direct_b2c,
+    initiate_direct_c2b,
+)
 
+def cli():
 def cli():
     parser = argparse.ArgumentParser(description="Speech-to-USSD Pipeline")
     parser.add_argument("--audio", help="Path to audio file")
