@@ -34,9 +34,25 @@ def cli():
     parser.add_argument("--traces", action="store_true", help="List saved traces")
     parser.add_argument("--trace", help="View a saved trace by run id")
     parser.add_argument("--serve", action="store_true", help="Launch the browser trace UI")
+    parser.add_argument("--confirm", help="Confirm a pending action by run_id")
+    parser.add_argument("--yes", action="store_true", help="Answer yes to --confirm")
+    parser.add_argument("--no", action="store_true", help="Answer no to --confirm")
     parser.add_argument("--port", type=int, default=8000, help="Port for --serve")
     parser.add_argument("--json", action="store_true", help="Print result as JSON")
     args = parser.parse_args()
+
+    # Pattern B — confirmation flow
+    if args.confirm:
+        from src.pipeline import confirm_and_execute
+        if args.yes:
+            answer = "yes"
+        elif args.no:
+            answer = "no"
+        else:
+            parser.error("--confirm requires --yes or --no")
+        result = confirm_and_execute(args.confirm, answer)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
 
     if args.serve:
         from app.server import serve

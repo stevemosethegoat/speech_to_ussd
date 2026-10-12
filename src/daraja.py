@@ -17,7 +17,14 @@ follow-up — handled by whoever dispatches on intent in server.py.
 """
 
 import base64
+import os
 import time
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 from datetime import datetime
 
 import requests
@@ -27,17 +34,17 @@ from requests.auth import HTTPBasicAuth
 # Load these from environment variables in real use (python-dotenv);
 # left as plain constants here for clarity.
 
-CONSUMER_KEY = "0A0mrNBgHT6n3VsPUQHlH7xzjpKxlAvZ7jx4Z3CCsQGG15XA"
-CONSUMER_SECRET = "UVDQgQhFXeTLN1BOadG3oQpiLliRBGvffw9DAJsQQ1CX9r4HZmnZRZC6oix19FyJ"
+CONSUMER_KEY = os.environ["DARAJA_CONSUMER_KEY"]
+CONSUMER_SECRET = os.environ["DARAJA_CONSUMER_SECRET"]
 
-SHORTCODE = "174379"          # sandbox STK Push shortcode
-PASSKEY = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"      # from Daraja portal > Lipa Na M-Pesa > Simulate
+SHORTCODE = os.getenv("DARAJA_SHORTCODE", "174379")          # sandbox STK Push shortcode
+PASSKEY = os.environ["DARAJA_PASSKEY"]      # from Daraja portal > Lipa Na M-Pesa > Simulate
 
 INITIATOR_NAME = "testapi"           # B2C initiator (sandbox default)
 SECURITY_CREDENTIAL = "YOUR_SECURITY_CREDENTIAL"  # encrypted initiator password
 
-BASE_URL = "https://sandbox.safaricom.co.ke"       # swap for api.safaricom.co.ke in prod
-PUBLIC_BASE_URL = "https://YOUR-NGROK-URL.ngrok-free.app"  # update per ngrok session
+BASE_URL = os.getenv("DARAJA_BASE_URL", "https://sandbox.safaricom.co.ke")       # swap for api.safaricom.co.ke in prod
+PUBLIC_BASE_URL = os.getenv("DARAJA_PUBLIC_BASE_URL", "")  # update per ngrok session
 
 
 # --- OAuth token, cached until near expiry -----------------------------
@@ -46,8 +53,29 @@ _token_cache = {"token": None, "expires_at": 0}
 
 
 def get_access_token() -> str:
+    """Get a fresh Daraja access token using manual Base64 Basic auth.
+
+    Manual encoding matches pesa-cli exactly and avoids subtle
+    differences introduced by requests.auth.HTTPBasicAuth.
+    """
     if _token_cache["token"] and time.time() < _token_cache["expires_at"]:
         return _token_cache["token"]
+
+    creds = base64.b64encode(
+        f"{CONSUMER_KEY}:{CONSUMER_SECRET}".encode()
+    ).decode()
+
+    resp = requests.get(
+        f"{BASE_URL}/oauth/v1/generate?grant_type=client_credentials",
+        headers={"Authorization": f"Basic {creds}"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    _token_cache["token"] = data["access_token"]
+    _token_cache["expires_at"] = time.time() + 3300   # 55 min safety margin
+    return _token_cache["token"]
 
     resp = requests.get(
         f"{BASE_URL}/oauth/v1/generate?grant_type=client_credentials",
@@ -63,16 +91,22 @@ def get_access_token() -> str:
 
 
 def _auth_header() -> dict:
-    return {"Authorization": f"Bearer {get_access_token()}"}
-
+    return {
+        "Authorization": f"Bearer {get_access_token()}",
+        "Content-Type":  "application/json",
+    }
 
 # --- C2B (used for direct C2B intents, and as Leg 1 of a C2C transfer) --
 
 def stk_push(phone: str, amount: float, callback_url: str,
              account_ref: str = "VoiceUSSD", description: str = "Payment") -> dict:
-    """Sends an STK Push prompt to `phone`. Safaricom calls callback_url
-    once the customer enters their PIN (or cancels / times out)."""
+    """Sends an STK Push prompt to `phone`.
 
+    Field constraints (learned from working reference):
+      - AccountReference max 12 characters
+      - TransactionDesc   max 13 characters
+      - Content-Type must be application/json (set in _auth_header)
+    """
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     password = base64.b64encode(
         f"{SHORTCODE}{PASSKEY}{timestamp}".encode()
@@ -80,16 +114,16 @@ def stk_push(phone: str, amount: float, callback_url: str,
 
     payload = {
         "BusinessShortCode": SHORTCODE,
-        "Password": password,
-        "Timestamp": timestamp,
-        "TransactionType": "CustomerPayBillOnline",
-        "Amount": int(amount),
-        "PartyA": phone,
-        "PartyB": SHORTCODE,
-        "PhoneNumber": phone,
-        "CallBackURL": callback_url,
-        "AccountReference": account_ref,
-        "TransactionDesc": description,
+        "Password":          password,
+        "Timestamp":         timestamp,
+        "TransactionType":   "CustomerPayBillOnline",
+        "Amount":            int(amount),
+        "PartyA":            phone,
+        "PartyB":            SHORTCODE,
+        "PhoneNumber":       phone,
+        "CallBackURL":       callback_url,
+        "AccountReference":  account_ref[:12],   # Daraja hard limit
+        "TransactionDesc":   description[:13],   # Daraja hard limit
     }
 
     resp = requests.post(

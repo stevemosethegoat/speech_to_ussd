@@ -1,97 +1,78 @@
-"""Automatic Speech Recognition using Whisper (transformers).
+"""Automatic Speech Recognition using faster-whisper (CTranslate2).
 
-Loads the fine-tuned checkpoint from models/whisper_finetuned/ if present,
-otherwise falls back to the base openai/whisper-tiny model.
+Drop-in replacement for the old transformers-based whisper.py.
 
-Browser WebM audio is converted to WAV using the FFmpeg executable
-bundled with imageio-ffmpeg before Whisper processes it.
+Uses faster-whisper with anti-hallucination parameters:
+    - VAD filter (skips silence, prevents phantom transcriptions)
+    - condition_on_previous_text=False (stops loop propagation)
+    - no_speech_threshold / compression_ratio_threshold / log_prob_threshold
+    - repetition guard on the final text
+
+Audio is converted to 16 kHz mono WAV via the FFmpeg binary bundled
+with imageio-ffmpeg before being passed to faster-whisper.
 """
 
 from functools import lru_cache
 from pathlib import Path
+import re
 import tempfile
 import subprocess
 
 FINETUNED_MODEL_DIR = Path("models/whisper_finetuned")
-DEFAULT_MODEL = "openai/whisper-tiny"
+CT2_MODEL_DIR = Path("models/whisper_swahili_ct2")
+DEFAULT_MODEL = "small"
 
 
-@lru_cache(maxsize=1)
-def load_model(model_size="tiny"):
-    """Load a Whisper model, preferring the fine-tuned checkpoint.
+@lru_cache(maxsize=2)
+def load_model(model_size: str = DEFAULT_MODEL):
+    """Load a faster-whisper model.
 
-    Returns (model, processor) or (None, None) if unavailable.
+    Priority:
+        1. Fine-tuned CT2 model at models/whisper_swahili_ct2
+        2. faster-whisper short name (e.g. "small")
     """
     try:
-        from transformers import (
-            WhisperForConditionalGeneration,
-            WhisperProcessor,
-        )
+        from faster_whisper import WhisperModel
     except ImportError:
-        print(
-            "Warning: transformers not installed. "
-            "Install to enable transcription."
-        )
-        return None, None
+        print("Warning: faster-whisper not installed. Install with: pip install faster-whisper")
+        return None
 
-    if FINETUNED_MODEL_DIR.exists() and any(
-        FINETUNED_MODEL_DIR.iterdir()
-    ):
-        model_id = str(FINETUNED_MODEL_DIR)
-        print(f"Loading fine-tuned Whisper from {model_id}")
+    if CT2_MODEL_DIR.exists() and (CT2_MODEL_DIR / "model.bin").exists():
+        model_id = str(CT2_MODEL_DIR)
+        print(f"Loading fine-tuned CT2 model from {model_id}")
     else:
-        if model_size == "tiny":
-            model_id = DEFAULT_MODEL
-        else:
-            model_id = f"openai/whisper-{model_size}"
-
-        print(f"Loading base Whisper model: {model_id}")
+        model_id = model_size
+        print(f"Loading faster-whisper model: {model_id}")
 
     try:
-        processor = WhisperProcessor.from_pretrained(model_id)
-        model = WhisperForConditionalGeneration.from_pretrained(
-            model_id
+        model = WhisperModel(
+            model_id,
+            device="cpu",
+            compute_type="int8",
+            cpu_threads=2,
         )
-
-        model.config.forced_decoder_ids = None
-        model.config.suppress_tokens = []
-
     except Exception as e:
-        print(
-            f"Warning: could not load Whisper model "
-            f"{model_id}: {e}"
-        )
-        return None, None
+        print(f"Warning: could not load faster-whisper model {model_id}: {e}")
+        return None
 
-    return model, processor
+    return model
 
 
 def convert_to_wav(audio_path):
-    """Convert an audio file to WAV using bundled FFmpeg.
-
-    Returns the path to the converted WAV file.
-    """
+    """Convert any audio to 16 kHz mono WAV using bundled FFmpeg."""
     from imageio_ffmpeg import get_ffmpeg_exe
 
     ffmpeg_exe = get_ffmpeg_exe()
-
-    temp_wav = tempfile.NamedTemporaryFile(
-        suffix=".wav",
-        delete=False,
-    )
+    temp_wav = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     temp_wav.close()
 
     command = [
         ffmpeg_exe,
         "-y",
-        "-i",
-        str(audio_path),
-        "-ar",
-        "16000",
-        "-ac",
-        "1",
-        "-c:a",
-        "pcm_s16le",
+        "-i", str(audio_path),
+        "-ar", "16000",
+        "-ac", "1",
+        "-c:a", "pcm_s16le",
         temp_wav.name,
     ]
 
@@ -101,103 +82,71 @@ def convert_to_wav(audio_path):
         stderr=subprocess.PIPE,
         check=True,
     )
-
     return Path(temp_wav.name)
+
+
+def _deduplicate_repeats(text: str) -> str:
+    """Collapse pathological repetition loops."""
+    if not text:
+        return text
+    text = re.sub(r"\b(\w)([.\s]+\1){3,}\b", r"\1", text)
+    text = re.sub(r"\b(\S+)(\s+\1){3,}\b", r"\1", text)
+    return text.strip()
 
 
 def transcribe(
     audio_path,
-    model_size="tiny",
-    language="sw",
-    task="transcribe",
+    model_size: str = DEFAULT_MODEL,
+    language: str = "sw",
+    task: str = "transcribe",
 ):
-    """Transcribe audio file to text using Whisper.
+    """Transcribe audio to text using faster-whisper.
 
-    Returns the recognized text, or "" if ASR is unavailable.
+    Preserves the old signature so main.py does not need changes.
     """
-    model, processor = load_model(model_size)
-
-    if model is None or processor is None:
+    model = load_model(model_size)
+    if model is None:
         return ""
 
-    import soundfile as sf
-
-    original_path = Path(audio_path)
+    audio = Path(audio_path)
     converted_path = None
 
-    try:
-        # Browser recordings are usually WebM.
-        # Convert them to WAV before SoundFile tries to read them.
-        if original_path.suffix.lower() in {
-            ".webm",
-            ".ogg",
-            ".opus",
-            ".m4a",
-            ".mp4",
-        }:
-            try:
-                converted_path = convert_to_wav(original_path)
-                audio_file = converted_path
-            except Exception as e:
-                print(
-                    f"Warning: could not convert audio "
-                    f"{audio_path}: {e}"
-                )
-                return ""
-        else:
-            audio_file = original_path
+    if audio.suffix.lower() != ".wav":
+        try:
+            converted_path = convert_to_wav(audio)
+            audio_to_use = converted_path
+        except Exception as e:
+            print(f"Warning: could not convert {audio_path}: {e}")
+            return ""
+    else:
+        audio_to_use = audio
 
-        audio, sr = sf.read(
-            str(audio_file),
-            dtype="float32",
+    try:
+        segments, info = model.transcribe(
+            str(audio_to_use),
+            language=language,
+            task=task,
+            beam_size=5,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500),
+            condition_on_previous_text=False,
+            no_speech_threshold=0.6,
+            log_prob_threshold=-1.0,
+            compression_ratio_threshold=2.4,
+            temperature=0.0,
+            without_timestamps=True,
         )
+
+        parts = [seg.text.strip() for seg in segments if seg.text.strip()]
+        text = " ".join(parts).strip()
+        text = _deduplicate_repeats(text)
 
     except Exception as e:
-        print(
-            f"Warning: could not read audio "
-            f"{audio_path}: {e}"
-        )
+        print(f"Warning: transcription failed: {e}")
         return ""
 
     finally:
         if converted_path is not None:
             converted_path.unlink(missing_ok=True)
 
-    if audio.ndim > 1:
-        audio = audio.mean(axis=1)
-
-    if sr != 16000:
-        import librosa
-
-        audio = librosa.resample(
-            audio,
-            orig_sr=sr,
-            target_sr=16000,
-        )
-        sr = 16000
-
-    input_features = processor(
-        audio,
-        sampling_rate=sr,
-        return_tensors="pt",
-    ).input_features
-
-    try:
-        generated = model.generate(
-            input_features,
-            language=language,
-            task=task,
-        )
-
-        text = processor.batch_decode(
-            generated,
-            skip_special_tokens=True,
-        )[0]
-
-    except Exception as e:
-        print(
-            f"Warning: transcription failed: {e}"
-        )
-        return ""
-
-    return text.strip()
+    return text

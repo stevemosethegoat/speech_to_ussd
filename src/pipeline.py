@@ -4,6 +4,7 @@ Every run is saved to data/traces/<run_id>/ so voice input is traceable:
 audio.wav, whisper_transcript.txt, and trace.json (intent, slots, USSD).
 """
 
+import os
 from pathlib import Path
 
 from src.audio.recorder import save_audio, record_audio
@@ -13,6 +14,8 @@ from src.preprocessing.text_cleaner import clean_swahili_text
 from src.slots.extractor import extract_slots
 from src.ussd.generator import generate_response
 from src.trace import save_trace, new_run_id
+from src.pending import save_pending, load_pending, clear_pending
+from src.contacts import lookup_contact
 
 CACHE_AUDIO_DIR = Path("data/raw/recordings")
 
@@ -71,6 +74,16 @@ def run_pipeline(
 
     # 4. Extract slots
     slots = extract_slots(cleaned, intent)
+
+    # Contacts: resolve name -> phone for DISPLAY ONLY.
+    # The STK Push uses DARAJA_FIXED_PHONE from .env, not this.
+    if not slots.get("phone"):
+        lookup_name = slots.get("name") or slots.get("recipient") or ""
+        resolved = lookup_contact(lookup_name) if lookup_name else None
+        if resolved:
+            slots["display_phone"] = resolved
+            steps.append({"step": "contact_lookup",
+                          "value": f"{lookup_name} -> {resolved}"})
     steps.append({"step": "slots", "value": slots})
 
     # 5. Generate USSD response
@@ -92,6 +105,16 @@ def run_pipeline(
         source=source,
     )
 
+    # 6. Persist as pending action (Pattern B: two-turn confirmation)
+    from src.pending import save_pending
+    save_pending(
+        run_id=run_id,
+        intent=intent,
+        slots=slots,
+        menu=response.get("ussd_menu", ""),
+        ussd_sequence=response.get("ussd_sequence", ""),
+    )
+
     result = {
         "run_id": run_id,
         "whisper_transcript": raw_transcript,
@@ -104,3 +127,140 @@ def run_pipeline(
         "steps": steps,
     }
     return result
+
+
+# ============================================================
+# PATTERN B — Confirmation flow
+# ============================================================
+
+# Intents that trigger an STK Push after the user confirms
+PAYMENT_INTENTS = {"SEND_MONEY", "PAY_BILL", "BUY_GOODS",
+                   "BUY_AIRTIME", "WITHDRAW", "DEPOSIT"}
+
+
+def confirm_and_execute(run_id: str, answer: str) -> dict:
+    """Second-turn handler: user confirms or cancels a pending action.
+
+    Args:
+        run_id:  The run_id from turn 1.
+        answer:  "yes" / "y" / "no" / "n" (case-insensitive).
+
+    Returns:
+        dict with status and either the Daraja response or an error.
+    """
+    pending = load_pending(run_id)
+    if pending is None:
+        return {
+            "status": "no_pending_action",
+            "run_id": run_id,
+            "message": ("No pending action for this run_id "
+                        "(expired after 10 minutes or never existed)."),
+        }
+
+    answer_norm = (answer or "").strip().lower()
+
+    # Cancellation
+    if answer_norm.startswith("n"):
+        clear_pending(run_id)
+        return {
+            "status": "cancelled",
+            "run_id": run_id,
+            "intent": pending["intent"],
+        }
+
+    if not answer_norm.startswith("y"):
+        return {
+            "status": "unrecognized_answer",
+            "run_id": run_id,
+            "answer": answer,
+        }
+
+    intent = pending["intent"]
+    slots = pending["slots"]
+
+    if intent not in PAYMENT_INTENTS:
+        clear_pending(run_id)
+        return {
+            "status": "unhandled_intent",
+            "run_id": run_id,
+            "intent": intent,
+        }
+
+    # Amount for STK Push
+    amount = slots.get("amount") or ""
+
+    # STK target: single fixed number from .env (NOT from contacts,
+    # NOT from slots). Contacts are display-only.
+    phone = os.getenv("DARAJA_FIXED_PHONE", "").strip()
+    phone = "".join(ch for ch in phone if ch.isdigit())
+    if phone.startswith("0"):
+        phone = "254" + phone[1:]
+    elif phone.startswith("7") and len(phone) == 9:
+        phone = "254" + phone
+
+    if not phone:
+        clear_pending(run_id)
+        return {
+            "status": "missing_fixed_phone",
+            "run_id": run_id,
+            "message": "DARAJA_FIXED_PHONE not set in .env",
+        }
+
+    if not phone or len(phone) < 10:
+        clear_pending(run_id)
+        return {
+            "status": "missing_phone",
+            "run_id": run_id,
+            "slots": slots,
+            "message": ("No phone number in slots. User must say "
+                        "'on 0712...' or a contact lookup is needed."),
+        }
+
+    if not amount:
+        clear_pending(run_id)
+        return {
+            "status": "missing_amount",
+            "run_id": run_id,
+            "slots": slots,
+        }
+
+    try:
+        amount_val = float(amount)
+    except (TypeError, ValueError):
+        clear_pending(run_id)
+        return {
+            "status": "invalid_amount",
+            "run_id": run_id,
+            "amount": amount,
+        }
+
+    # Fire the STK Push
+    from src.daraja import stk_push
+
+    try:
+        daraja_result = stk_push(
+            phone=phone,
+            amount=amount_val,
+            callback_url="https://example.com/callback",   # replace with ngrok later
+            account_ref=run_id[:12],
+            description=f"VoiceUSSD {intent}"[:13],
+        )
+    except Exception as e:
+        clear_pending(run_id)
+        return {
+            "status": "daraja_error",
+            "run_id": run_id,
+            "error": str(e),
+        }
+
+    clear_pending(run_id)
+
+    return {
+        "status": "stk_sent",
+        "run_id": run_id,
+        "intent": intent,
+        "phone": phone,
+        "amount": amount_val,
+        "daraja": daraja_result,
+    }
+
