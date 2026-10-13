@@ -752,7 +752,7 @@ body {
 
 
         <div class="pin-label">
-            Enter M-PESA PIN:
+            Demo PIN (this simulates the phone prompt):
         </div>
 
 
@@ -765,6 +765,9 @@ body {
             autocomplete="off"
             readonly
         >
+        <div style="font-size:11px; color:#888; margin-top:6px; text-align:center;">
+            This is a demo. Your real M-Pesa PIN is entered on your phone after tapping Confirm.
+        </div>
 
 
         <div class="keypad">
@@ -1803,9 +1806,11 @@ async function processCommand(text) {
 
 
         const phone =
-            slots.recipient ||
             result.phone ||
+            slots.display_phone ||
+            slots.phone ||
             result.recipient_phone ||
+            slots.recipient ||
             "Unknown";
 
 
@@ -2074,7 +2079,7 @@ async function completeTransaction() {
     if (pin.length !== 4) {
 
         showError(
-            "Please enter the 4-digit demo PIN."
+            "Enter any 4 digits to continue the demo."
         );
 
         return;

@@ -20,7 +20,7 @@ import subprocess
 
 FINETUNED_MODEL_DIR = Path("models/whisper_finetuned")
 CT2_MODEL_DIR = Path("models/whisper_swahili_ct2")
-DEFAULT_MODEL = "small"
+DEFAULT_MODEL = "tiny"
 
 
 @lru_cache(maxsize=2)

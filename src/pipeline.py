@@ -238,6 +238,54 @@ def confirm_and_execute(run_id: str, answer: str) -> dict:
     from src.daraja import stk_push
 
     try:
+        # --- C2C path for SEND_MONEY ---
+        if intent == "SEND_MONEY":
+            recipient_phone = slots.get("display_phone") or slots.get("phone")
+            if not recipient_phone:
+                clear_pending(run_id)
+                return {
+                    "status": "missing_recipient_phone",
+                    "run_id": run_id,
+                    "slots": slots,
+                }
+
+            # Record transaction state so the callback can finish the flow
+            from src.transactions import put as tx_put
+            tx_put(run_id, {
+                "intent": "SEND_MONEY_P2P",
+                "slots": {
+                    "recipient_phone": recipient_phone,
+                    "amount": amount_val,
+                },
+                "status": "AWAITING_SENDER_PAYMENT",
+            })
+
+            # Leg 1: STK Push to the FIXED sender phone (you), collecting
+            sender = os.getenv("DARAJA_FIXED_PHONE", "").strip()
+            sender = "".join(ch for ch in sender if ch.isdigit())
+            if sender.startswith("0"):
+                sender = "254" + sender[1:]
+
+            from src.daraja import initiate_c2c_transfer
+            daraja_result = initiate_c2c_transfer(
+                sender_phone=sender,
+                recipient_phone=recipient_phone,
+                amount=amount_val,
+                reference=run_id,
+            )
+
+            # Do NOT clear_pending — the callback needs it
+            return {
+                "status": "awaiting_sender_pin",
+                "run_id": run_id,
+                "intent": intent,
+                "phone": sender,
+                "recipient_phone": recipient_phone,
+                "amount": amount_val,
+                "daraja": daraja_result,
+            }
+
+        # --- Non-C2C intents (PAY_BILL, BUY_GOODS, BUY_AIRTIME) ---
         daraja_result = stk_push(
             phone=phone,
             amount=amount_val,

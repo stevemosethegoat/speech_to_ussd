@@ -8,8 +8,10 @@ Runs a stdlib-only HTTP server (no FastAPI/Flask):
 
 Launch:  python -m app.server [--port 8000]
 """
+import os
 
 import argparse
+import os
 import html
 import json
 import traceback
@@ -18,7 +20,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs
 
+# Load .env so DARAJA_* vars are available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from src.trace import list_traces, get_trace, trace_audio_path
+from src.dispatch import dispatch_to_daraja
+from src.transactions import get as get_transaction, update as update_transaction
 
 TRACES_DIR = Path("data/traces")
 UPLOADS_DIR = Path("data/raw/uploads")
@@ -574,13 +585,244 @@ def render_trace(run_id: str) -> bytes:
 
 
 class TraceHandler(BaseHTTPRequestHandler):
+
+    # ----------------------------------------------------------------
+    # JSON helper for the SPA API
+    # ----------------------------------------------------------------
+    def _json_response(self, data: dict, status: int = 200):
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.end_headers()
+
+    # ----------------------------------------------------------------
+    # POST /command  — text -> full pipeline -> JSON
+    # ----------------------------------------------------------------
+    def _api_command(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            payload = json.loads(self.rfile.read(length) or b"{}")
+            text = (payload.get("text") or "").strip()
+            if not text:
+                return self._json_response({"error": "empty text"}, 400)
+
+            from src.pipeline import run_pipeline
+            result = run_pipeline(
+                model_name="logistic_regression",
+                raw_text_override=text,
+                source="text",
+            )
+            return self._json_response({
+                "run_id":          result.get("run_id"),
+                "intent":          result.get("intent"),
+                "confidence":      result.get("confidence"),
+                "slots":           result.get("slots", {}),
+                "phone":           (result.get("slots") or {}).get("display_phone")
+                                    or (result.get("slots") or {}).get("phone")
+                                    or "",
+                "recipient_phone": (result.get("slots") or {}).get("display_phone")
+                                    or (result.get("slots") or {}).get("phone")
+                                    or "",
+                "recipient_name":  (result.get("slots") or {}).get("name") or "",
+                "transcript":      result.get("whisper_transcript", ""),
+                "normalized_text": result.get("normalized_text", ""),
+                "ussd_menu":       result.get("ussd_menu", ""),
+                "ussd_sequence":   result.get("ussd_sequence", ""),
+            })
+        except Exception as exc:
+            traceback.print_exc()
+            return self._json_response(
+                {"error": str(exc), "message": str(exc)}, 500
+            )
+
+    # ----------------------------------------------------------------
+    # POST /process-voice — multipart audio -> pipeline -> JSON
+    # ----------------------------------------------------------------
+    def _api_process_voice(self):
+        try:
+            content_type = self.headers.get("Content-Type", "")
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            fields = parse_multipart(body, content_type)
+            audio_field = fields.get("audio")
+            if not audio_field or not audio_field["content"]:
+                return self._json_response({"error": "no audio"}, 400)
+
+            UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+            filename = audio_field.get("filename") or ""
+            suffix = Path(filename).suffix or ".webm"
+            if len(suffix) > 6:
+                suffix = ".webm"
+            saved_path = UPLOADS_DIR / f"upload-{uuid.uuid4().hex[:8]}{suffix}"
+            saved_path.write_bytes(audio_field["content"])
+
+            from src.pipeline import run_pipeline
+            result = run_pipeline(audio_path=str(saved_path), source="upload")
+            return self._json_response({
+                "run_id":          result.get("run_id"),
+                "intent":          result.get("intent"),
+                "confidence":      result.get("confidence"),
+                "slots":           result.get("slots", {}),
+                "phone":           (result.get("slots") or {}).get("display_phone")
+                                    or (result.get("slots") or {}).get("phone")
+                                    or "",
+                "recipient_phone": (result.get("slots") or {}).get("display_phone")
+                                    or (result.get("slots") or {}).get("phone")
+                                    or "",
+                "recipient_name":  (result.get("slots") or {}).get("name") or "",
+                "transcript":      result.get("whisper_transcript", ""),
+                "normalized_text": result.get("normalized_text", ""),
+                "ussd_menu":       result.get("ussd_menu", ""),
+                "ussd_sequence":   result.get("ussd_sequence", ""),
+            })
+        except Exception as exc:
+            traceback.print_exc()
+            return self._json_response(
+                {"error": str(exc), "message": str(exc)}, 500
+            )
+
+    # ----------------------------------------------------------------
+    # POST /demo/send-money — fire STK Push -> JSON {success, message}
+    # ----------------------------------------------------------------
+    def _api_demo_send_money(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            payload = json.loads(self.rfile.read(length) or b"{}")
+            amount = float(payload.get("amount") or 0)
+            phone  = str(payload.get("phone") or "").strip()
+            if not amount or not phone:
+                return self._json_response(
+                    {"success": False, "message": "missing amount or phone"},
+                    400,
+                )
+
+            target = os.getenv("DARAJA_FIXED_PHONE", "").strip()
+            target = "".join(ch for ch in target if ch.isdigit())
+            if target.startswith("0"):
+                target = "254" + target[1:]
+            elif target.startswith("7") and len(target) == 9:
+                target = "254" + target
+            if not target:
+                return self._json_response(
+                    {"success": False,
+                     "message": "DARAJA_FIXED_PHONE not set"},
+                    500,
+                )
+
+            # Use a proper public HTTPS URL for the callback.
+            # Daraja rejects anything without https:// and a real host.
+            base = (os.getenv("DARAJA_PUBLIC_BASE_URL") or "").rstrip("/")
+            if not base or not base.startswith("https://"):
+                # Fall back to the request's own origin (only works if
+                # the client is on a public HTTPS URL — localhost won't do).
+                origin = self.headers.get("Origin") or ""
+                base = origin.rstrip("/")
+
+            if not base or not base.startswith("https://"):
+                return self._json_response({
+                    "success": False,
+                    "message": ("Callback URL must be a public HTTPS URL. "
+                                "Set DARAJA_PUBLIC_BASE_URL in .env "
+                                "(e.g. your ngrok URL)."),
+                }, 400)
+
+            callback_url = f"{base}/daraja/c2b-result"
+
+            # Generate the ref BEFORE calling Daraja, so we always have a
+            # transaction record to track — even if the call fails.
+            import uuid as _uuid
+            ref = payload.get("ref") or f"demo-{_uuid.uuid4().hex[:12]}"
+
+            from src.transactions import put as tx_put
+            tx_put(ref, {
+                "intent": "DEMO_SEND_MONEY",
+                "slots": {"amount": amount, "phone": target},
+                "status": "REQUESTING_STK",
+                "amount": amount,
+                "phone": target,
+            })
+
+            from src.daraja import stk_push
+            try:
+                r = stk_push(
+                    phone=target,
+                    amount=amount,
+                    callback_url=callback_url,
+                    account_ref="SautiPesa"[:12],
+                    description="Sauti Pesa"[:13],
+                )
+            except Exception as exc:
+                # Record the failure but still return the ref
+                tx_put(ref, {
+                    "intent": "DEMO_SEND_MONEY",
+                    "slots": {"amount": amount, "phone": target},
+                    "status": "STK_REQUEST_FAILED",
+                    "error": str(exc),
+                    "amount": amount,
+                    "phone": target,
+                })
+                return self._json_response({
+                    "success": False,
+                    "message": f"Daraja call failed: {exc}",
+                    "ref": ref,
+                }, 500)
+
+            # Update the tx with the CheckoutRequestID
+            tx_put(ref, {
+                "intent": "DEMO_SEND_MONEY",
+                "slots": {"amount": amount, "phone": target},
+                "status": "AWAITING_CALLBACK",
+                "checkout_request_id": r.get("CheckoutRequestID"),
+                "merchant_request_id": r.get("MerchantRequestID"),
+                "amount": amount,
+                "phone": target,
+            })
+
+            ok = str(r.get("ResponseCode")) == "0"
+            return self._json_response({
+                "success": ok,
+                "message": r.get("CustomerMessage")
+                           or r.get("errorMessage")
+                           or "Request accepted",
+                "ref": ref,
+                "checkout_request_id": r.get("CheckoutRequestID"),
+                "daraja": r,
+            })
+        except Exception as exc:
+            traceback.print_exc()
+            return self._json_response(
+                {"success": False, "message": str(exc)}, 500
+            )
+
     def do_GET(self):  # noqa: N802
         path = self.path.split("?")[0]
 
         if path == "/" or path == "/index.html":
-            content = render_index()
+            static_index = Path(__file__).parent / "static" / "Index.html"
+            if static_index.exists():
+                content = static_index.read_bytes()
+            else:
+                content = render_index()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
         elif path == "/manifest.json":
             manifest_path = Path(__file__).parent / "static" / "manifest.json"
             if manifest_path.exists():
@@ -592,11 +834,13 @@ class TraceHandler(BaseHTTPRequestHandler):
                 self.send_response(404)
                 self.send_header("Content-Type", "text/plain")
         elif path.startswith("/static/"):
+            import mimetypes
             static_path = Path(__file__).parent / path.lstrip("/")
             if static_path.exists() and static_path.is_file():
                 content = static_path.read_bytes()
+                mime, _ = mimetypes.guess_type(str(static_path))
                 self.send_response(200)
-                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Type", mime or "application/octet-stream")
             else:
                 content = b"Not found"
                 self.send_response(404)
@@ -618,6 +862,26 @@ class TraceHandler(BaseHTTPRequestHandler):
                 content = b"Audio not found"
                 self.send_response(404)
                 self.send_header("Content-Type", "text/plain")
+        elif path.startswith("/daraja/status/"):
+            ref = path[len("/daraja/status/"):]
+            self._daraja_status(ref)
+            return
+        # Serve PWA assets at root paths (sw.js, icons, manifest)
+        if path in ("/sw.js", "/icon-192.png", "/icon-512.png", "/manifest.json"):
+            import mimetypes
+            static_path = Path(__file__).parent / "static" / path.lstrip("/")
+            if static_path.exists():
+                content = static_path.read_bytes()
+                mime, _ = mimetypes.guess_type(str(static_path))
+                self.send_response(200)
+                self.send_header("Content-Type", mime or "application/octet-stream")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+            # fall through to 404 below
+
         else:
             content = b"Not found"
             self.send_response(404)
@@ -630,6 +894,13 @@ class TraceHandler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         path = self.path.split("?")[0]
 
+        if path == "/command":
+            return self._api_command()
+        if path == "/process-voice":
+            return self._api_process_voice()
+        if path == "/demo/send-money":
+            return self._api_demo_send_money()
+
         if path == "/run-audio":
             self._run_audio()
             return
@@ -637,6 +908,14 @@ class TraceHandler(BaseHTTPRequestHandler):
         if path == "/run-record":
             self._run_record()
             return
+
+        # Route daraja callbacks BEFORE the catch-all
+        if path == "/daraja/c2b-result":
+            return self._daraja_c2b_callback()
+        if path == "/daraja/b2c-result":
+            return self._daraja_b2c_callback()
+        if path == "/daraja/timeout":
+            return self._daraja_timeout()
 
         if path != "/run":
             self.send_response(404)
@@ -730,6 +1009,10 @@ class TraceHandler(BaseHTTPRequestHandler):
         self.send_header("Location", f"/trace/{run_id}")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
+        result = run_pipeline(audio_path=str(saved_path), source="upload")
+        daraja_result = dispatch_to_daraja(result)   # <-- new
+        result["daraja"] = daraja_result             # <-- new
+        run_id = result["run_id"] 
 
     def _run_record(self):
         length = int(self.headers.get("Content-Length", 0))
@@ -763,12 +1046,118 @@ class TraceHandler(BaseHTTPRequestHandler):
         self.send_header("Location", f"/trace/{run_id}")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
+        result = run_pipeline(audio_path=str(saved_path), source="upload")
+        daraja_result = dispatch_to_daraja(result)   # <-- new
+        result["daraja"] = daraja_result             # <-- new
+        run_id = result["run_id"]
+    def _daraja_c2b_callback(self):
+        length = int(self.headers.get("Content-Length", 0))
+        callback_data = json.loads(self.rfile.read(length))
+        qs = parse_qs(self.path.split("?", 1)[-1])
+        ref = qs.get("ref", [None])[0]
+
+        stk = callback_data.get("Body", {}).get("stkCallback", {})
+        result_code = stk.get("ResultCode")
+        result_desc = stk.get("ResultDesc")
+        checkout_id = stk.get("CheckoutRequestID")
+
+        # Extract the interesting callback fields for the audit trail
+        items = stk.get("CallbackMetadata", {}).get("Item", []) or []
+        meta = {i.get("Name"): i.get("Value") for i in items}
+
+        tx = get_transaction(ref)
+
+        print(f"[c2b-callback] ref={ref} result_code={result_code!r} "
+              f"result_desc={result_desc!r} checkout_id={checkout_id!r} "
+              f"tx_intent={(tx or {}).get('intent')!r} "
+              f"tx_status={(tx or {}).get('status')!r}")
+
+        # Save the raw callback data for audit + debugging
+        update_transaction(ref,
+            last_callback={
+                "ResultCode": result_code,
+                "ResultDesc": result_desc,
+                "CheckoutRequestID": checkout_id,
+                "MpesaReceiptNumber": meta.get("MpesaReceiptNumber"),
+                "TransactionDate": meta.get("TransactionDate"),
+                "Amount": meta.get("Amount"),
+                "PhoneNumber": meta.get("PhoneNumber"),
+            },
+        )
+
+        if result_code == 0:
+            update_transaction(ref, status="SENDER_PAYMENT_CONFIRMED")
+
+            intent = (tx or {}).get("intent", "")
+            if intent == "SEND_MONEY_P2P":
+                try:
+                    from src.daraja import continue_c2c_transfer
+                    b2c = continue_c2c_transfer(
+                        recipient_phone=tx["slots"]["recipient_phone"],
+                        amount=tx["slots"]["amount"],
+                        reference=ref,
+                    )
+                    update_transaction(ref, status="AWAITING_PAYOUT", b2c_response=b2c)
+                    print(f"[c2b-callback] Leg 2 (B2C) fired: {b2c}")
+                except Exception as exc:
+                    update_transaction(ref, status="PAYOUT_ERROR", error=str(exc))
+                    print(f"[c2b-callback] Leg 2 FAILED: {exc}")
+            else:
+                update_transaction(ref, status="COMPLETED")
+                print(f"[c2b-callback] non-C2C intent, marked COMPLETED")
+        else:
+            update_transaction(ref, status="SENDER_PAYMENT_FAILED")
+
+        self.send_response(200)
+        self.end_headers()
+
+    def _daraja_b2c_callback(self):
+      length = int(self.headers.get("Content-Length", 0))
+      callback_data = json.loads(self.rfile.read(length))
+      qs = parse_qs(self.path.split("?", 1)[-1])
+      ref = qs.get("ref", [None])[0]
+
+      result_code = callback_data.get("Result", {}).get("ResultCode")
+      update_transaction(ref, status="COMPLETED" if result_code == 0 else "PAYOUT_FAILED")
+
+      self.send_response(200)
+      self.end_headers()
+
+
+    def _daraja_timeout(self):
+      qs = parse_qs(self.path.split("?", 1)[-1])
+      ref = qs.get("ref", [None])[0]
+      update_transaction(ref, status="TIMEOUT_RETRY")
+      self.send_response(200)
+      self.end_headers()
+
+
+    def _daraja_status(self, ref):
+      tx = get_transaction(ref)
+      if not tx:
+          self.send_response(404); self.end_headers(); return
+
+      body = json.dumps({"status": tx.get("status")}).encode()
+      self.send_response(200)
+      self.send_header("Content-Type", "application/json")
+      self.send_header("Cache-Control", "no-store")
+      self.end_headers()
+      self.wfile.write(body)
 
     def log_message(self, fmt, *args):
         print(f"[server] {self.address_string()} {fmt % args}")
 
 
 def serve(port=8000, host="127.0.0.1"):
+    # Warm the ASR model once at startup, not on first request.
+    try:
+        print("Preloading ASR model (this takes 5-15s on CPU)...")
+        from src.asr.whisper import load_model
+        load_model()
+        print("ASR model ready.")
+    except Exception as exc:
+        print(f"ASR preload failed (will load lazily): {exc}")
+
     server = ThreadingHTTPServer((host, port), TraceHandler)
     print(f"Sema, Tuma running at http://{host}:{port}")
     print("   Type a command on the home page, or open a past run to see its trace.")

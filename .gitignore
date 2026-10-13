@@ -42,3 +42,30 @@ colab_upload.tar.gz
 # Training/runtime state
 data/pending/
 data/traces/
+
+# Test artifacts
+*.wav
+*.aac
+*.webm
+*.mp3
+*.m4a
+
+# Runtime state
+data/transactions/
+data/pending/
+data/processed/
+data/raw/
+data/traces/
+
+# Test data directories
+data/sendmoneywhatsappsynthetic/
+
+# Model binaries (track via DVC or HF Hub instead)
+models/*.pkl
+models/intent_classifier/
+models/enhanced_intent/
+models/vectorizer.pkl
+
+# Stray files from typos
+1
+john
