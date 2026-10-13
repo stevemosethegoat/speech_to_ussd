@@ -791,6 +791,20 @@ class TraceHandler(BaseHTTPRequestHandler):
                 "phone": target,
             })
 
+            # DEMO ONLY: schedule a simulated callback 5s from now so the
+            # UI polling sees state advance without a manual curl.
+            # Remove this when integrating with real Safaricom.
+            import threading, time as _time
+            def _simulate_callback():
+                _time.sleep(5)
+                from src.transactions import update as _update
+                _update(ref, status="SENDER_PAYMENT_CONFIRMED")
+                _time.sleep(2)
+                _update(ref, status="COMPLETED",
+                        last_callback={"ResultCode": 0,
+                                       "MpesaReceiptNumber": "DEMO-" + ref[-6:].upper()})
+            threading.Thread(target=_simulate_callback, daemon=True).start()
+
             ok = str(r.get("ResponseCode")) == "0"
             return self._json_response({
                 "success": ok,

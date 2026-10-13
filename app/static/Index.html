@@ -2070,6 +2070,35 @@ completeBtn.addEventListener(
 );
 
 
+async function pollTransactionStatus(ref, maxTries = 30) {
+    // Poll /daraja/status/<ref> until the C2C wire completes
+    for (let i = 0; i < maxTries; i++) {
+        try {
+            const r = await fetch(BACKEND_URL + "/daraja/status/" + ref);
+            const data = await r.json();
+            const status = data.status || "";
+
+            // Update the UI with the current status
+            if (statusText) {
+                statusText.textContent = "Status: " + status + " (" + (i + 1) + "/" + maxTries + ")";
+            }
+
+            if (status === "COMPLETED") return { ok: true, status };
+            if (status === "SENDER_PAYMENT_FAILED" ||
+                status === "PAYOUT_FAILED" ||
+                status === "PAYOUT_ERROR" ||
+                status === "STK_REQUEST_FAILED") {
+                return { ok: false, status };
+            }
+        } catch (e) {
+            console.warn("poll error:", e);
+        }
+        await new Promise(r => setTimeout(r, 2000));
+    }
+    return { ok: false, status: "TIMEOUT" };
+}
+
+
 async function completeTransaction() {
 
     const pin =
@@ -2147,6 +2176,20 @@ async function completeTransaction() {
 
         const result =
             await response.json();
+
+        // Poll the transaction status until the C2C callback lands
+        if (result.ref) {
+            const final = await pollTransactionStatus(result.ref);
+            result.success = final.ok;
+            result.status = final.status;
+            if (final.ok) {
+                result.message = "Payment completed successfully.";
+            } else if (final.status === "TIMEOUT") {
+                result.message = "Waiting for the customer to enter their PIN…";
+            } else {
+                result.message = "Payment failed: " + final.status;
+            }
+        }
 
 
         console.log(
