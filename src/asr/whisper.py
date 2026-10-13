@@ -20,7 +20,7 @@ import subprocess
 
 FINETUNED_MODEL_DIR = Path("models/whisper_finetuned")
 CT2_MODEL_DIR = Path("models/whisper_swahili_ct2")
-DEFAULT_MODEL = "tiny"
+DEFAULT_MODEL = "small"
 
 
 @lru_cache(maxsize=2)
@@ -70,6 +70,11 @@ def convert_to_wav(audio_path):
         ffmpeg_exe,
         "-y",
         "-i", str(audio_path),
+        # Audio preprocessing for Whisper:
+        #   highpass=f=100        — strip rumble / handling noise < 100 Hz
+        #   loudnorm=I=-16        — normalize to -16 LUFS (spoken content std)
+        #                            TP=-1.5 = true peak cap, LRA=11 = dynamic range
+        "-af", "highpass=f=100,loudnorm=I=-16:TP=-1.5:LRA=11",
         "-ar", "16000",
         "-ac", "1",
         "-c:a", "pcm_s16le",
