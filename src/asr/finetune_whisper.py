@@ -1,35 +1,14 @@
 """
-Two-stage Whisper fine-tuning.
+Single-stage Whisper fine-tuning for Swahili ASR.
 
-Stage 1:
-    Fine-tune openai/whisper-large on a general Swahili speech dataset.
-
-Stage 2:
-    Continue fine-tuning the Stage-1 checkpoint on natural WhatsApp
-    recordings.
-
-Examples
---------
-
-Stage 1:
-
+Usage:
     python -m src.asr.finetune_whisper \
-        --stage 1 \
-        --csv data/processed/cleaned_speech_transcripts.csv \
+        --csv data/processed/train_stage1.csv \
+        --base-model openai/whisper-small \
         --output-dir models/whisper_swahili \
         --epochs 3 \
-        --batch-size 1
-
-Stage 2:
-#here we should use  the audio whatsapp data  which is the send money whatsapp synthetic to now fine tune on the second part of the  model directly
-
-    python -m src.asr.finetune_whisper \
-        --stage 2 \
-        --csv data/processed/naturalvoice/metadata.csv \
-        --base-model models/whisper_swahili \
-        --output-dir models/whisper_finetuned \
-        --epochs 2 \
-        --batch-size 1
+        --batch-size 4 \
+        --lora
 """
 
 import argparse
@@ -46,238 +25,75 @@ from transformers import (
 )
 
 
-# ============================================================
-# PROJECT PATHS
-# ============================================================
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-# small is CPU-friendly; use large only with a strong GPU
 DEFAULT_BASE_MODEL = "openai/whisper-small"
-
-DEFAULT_STAGE1_CSV = (
-    PROJECT_ROOT
-    / "data"
-    / "processed"
-    / "cleaned_speech_transcripts.csv"
-)
-
-DEFAULT_STAGE2_CSV = (
-    PROJECT_ROOT
-    / "data"
-    / "processed"
-    / "naturalvoice"
-    / "metadata.csv"
-)
-
-DEFAULT_STAGE1_OUTPUT = (
-    PROJECT_ROOT / "models" / "whisper_swahili"
-)
-
-DEFAULT_STAGE2_OUTPUT = (
-    PROJECT_ROOT / "models" / "whisper_finetuned"
-)
+DEFAULT_CSV = PROJECT_ROOT / "data" / "processed" / "train_stage1.csv"
+DEFAULT_OUTPUT = PROJECT_ROOT / "models" / "whisper_swahili"
 
 
 # ============================================================
 # DATA LOADING
 # ============================================================
 
-def load_dataframe(
-    csv_path: Path,
-    stage: int,
-    sample: int | None = None,
-) -> pd.DataFrame:
+def load_dataframe(csv_path: Path, sample: int | None = None) -> pd.DataFrame:
     """
-    Load and validate the dataset CSV.
-
-    Stage 1 expects:
-        resampled_audio_path
-        transcript
-
-    Stage 2 expects:
-        audio
-        transcript
+    Load a single-schema CSV. Accepts either:
+        - audio + transcript
+        - resampled_audio_path + transcript
     """
-
     if not csv_path.exists():
-        raise FileNotFoundError(
-            f"\nDataset not found:\n{csv_path}\n"
-        )
+        raise FileNotFoundError(f"\nDataset not found:\n{csv_path}\n")
 
     print(f"Loading dataset: {csv_path}")
-
     df = pd.read_csv(csv_path)
-
     print(f"Columns found: {list(df.columns)}")
     print(f"Rows found: {len(df)}")
 
-    # --------------------------------------------------------
-    # Stage 1
-    # --------------------------------------------------------
+    # Normalize audio column name
+    if "resampled_audio_path" in df.columns and "audio" not in df.columns:
+        df = df.rename(columns={"resampled_audio_path": "audio"})
 
-    if stage == 1:
+    for col in ("audio", "transcript"):
+        if col not in df.columns:
+            raise ValueError(f"Missing required column: {col}")
 
-        required = [
-            "resampled_audio_path",
-            "transcript",
-        ]
-
-        missing = [
-            column
-            for column in required
-            if column not in df.columns
-        ]
-
-        if missing:
-            raise ValueError(
-                f"Stage 1 dataset is missing columns: {missing}"
-            )
-
-        df = df[
-            df["transcript"].notna()
-            & (
-                df["transcript"]
-                .astype(str)
-                .str.strip()
-                != ""
-            )
-        ].copy()
-
-        df = df[
-            df["resampled_audio_path"].notna()
-            & (
-                df["resampled_audio_path"]
-                .astype(str)
-                .str.strip()
-                != ""
-            )
-        ].copy()
-
-        df = df.rename(
-            columns={
-                "resampled_audio_path": "audio"
-            }
-        )
-
-    # --------------------------------------------------------
-    # Stage 2
-    # --------------------------------------------------------
-
-    elif stage == 2:
-
-        required = [
-            "audio",
-            "transcript",
-        ]
-
-        missing = [
-            column
-            for column in required
-            if column not in df.columns
-        ]
-
-        if missing:
-            raise ValueError(
-                f"Stage 2 dataset is missing columns: {missing}"
-            )
-
-        df = df[
-            df["transcript"].notna()
-            & (
-                df["transcript"]
-                .astype(str)
-                .str.strip()
-                != ""
-            )
-        ].copy()
-
-        df = df[
-            df["audio"].notna()
-            & (
-                df["audio"]
-                .astype(str)
-                .str.strip()
-                != ""
-            )
-        ].copy()
-
-    else:
-        raise ValueError("stage must be 1 or 2")
-
-    # --------------------------------------------------------
-    # Resolve audio paths
-    # --------------------------------------------------------
-
-    def resolve_audio_path(audio_path):
-        path = Path(str(audio_path))
-
-        if path.is_absolute():
-            return str(path)
-
-        # First try relative to project root.
-        project_path = PROJECT_ROOT / path
-
-        if project_path.exists():
-            return str(project_path)
-
-        # Then try relative to CSV directory.
-        csv_path_candidate = csv_path.parent / path
-
-        if csv_path_candidate.exists():
-            return str(csv_path_candidate)
-
-        # Return project-relative path even if it does not
-        # currently exist. Validation happens below.
-        return str(project_path)
-
-    df["audio"] = df["audio"].apply(resolve_audio_path)
-
-    # --------------------------------------------------------
-    # Remove missing audio files
-    # --------------------------------------------------------
-
-    before = len(df)
-
-    df = df[
-        df["audio"].apply(
-            lambda path: Path(path).exists()
-        )
-    ].copy()
-
-    removed = before - len(df)
-
-    if removed:
-        print(
-            f"Removed {removed} rows with missing audio files."
-        )
-
-    # --------------------------------------------------------
-    # Optional sampling
-    # --------------------------------------------------------
-
-    if sample is not None:
-
-        if sample <= 0:
-            raise ValueError(
-                "--sample must be greater than 0"
-            )
-
-        if sample < len(df):
-            df = df.sample(
-                n=sample,
-                random_state=42,
-            )
-
+    df = df[df["transcript"].notna() & (df["transcript"].astype(str).str.strip() != "")]
+    df = df[df["audio"].notna() & (df["audio"].astype(str).str.strip() != "")]
     df = df.reset_index(drop=True)
 
+    # Resolve audio paths
+    def resolve(p):
+        path = Path(str(p))
+        if path.is_absolute():
+            return str(path)
+        candidate = PROJECT_ROOT / path
+        if candidate.exists():
+            return str(candidate)
+        candidate = csv_path.parent / path
+        if candidate.exists():
+            return str(candidate)
+        return str(path)
+
+    df["audio"] = df["audio"].apply(resolve)
+
+    # Drop missing audio files
+    before = len(df)
+    df = df[df["audio"].apply(lambda p: Path(p).exists())].copy()
+    removed = before - len(df)
+    if removed:
+        print(f"Removed {removed} rows with missing audio files.")
+
+    # Optional sampling
+    if sample is not None:
+        if sample <= 0:
+            raise ValueError("--sample must be > 0")
+        if sample < len(df):
+            df = df.sample(n=sample, random_state=42)
+        df = df.reset_index(drop=True)
+
     print(f"Valid rows: {len(df)}")
-
     if len(df) == 0:
-        raise ValueError(
-            "No valid audio/transcript pairs were found."
-        )
-
+        raise ValueError("No valid audio/transcript pairs were found.")
     return df
 
 
@@ -285,48 +101,24 @@ def load_dataframe(
 # DATASET PREPARATION
 # ============================================================
 
-def prepare_dataset(
-    df: pd.DataFrame,
-    processor: WhisperProcessor,
-) -> Dataset:
-    """
-    Convert the pandas dataframe into a Hugging Face Dataset
-    and extract Whisper input features and labels.
-    """
-
-    dataset = Dataset.from_pandas(
-        df[["audio", "transcript"]],
-        preserve_index=False,
-    )
-
-    dataset = dataset.cast_column(
-        "audio",
-        Audio(sampling_rate=16000),
-    )
+def prepare_dataset(df: pd.DataFrame, processor: WhisperProcessor) -> Dataset:
+    """Convert dataframe into HF Dataset with input_features and labels."""
+    dataset = Dataset.from_pandas(df[["audio", "transcript"]], preserve_index=False)
+    dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
 
     def prepare_example(example):
-
         audio = example["audio"]
-
         input_features = processor.feature_extractor(
-            audio["array"],
-            sampling_rate=audio["sampling_rate"],
+            audio["array"], sampling_rate=audio["sampling_rate"]
         ).input_features[0]
-
-        labels = processor.tokenizer(
-            example["transcript"]
-        ).input_ids
-
-        return {
-            "input_features": input_features,
-            "labels": labels,
-        }
+        labels = processor.tokenizer(example["transcript"]).input_ids
+        return {"input_features": input_features, "labels": labels}
 
     dataset = dataset.map(
         prepare_example,
         remove_columns=dataset.column_names,
+        num_proc=1,
     )
-
     return dataset
 
 
@@ -335,61 +127,24 @@ def prepare_dataset(
 # ============================================================
 
 class DataCollatorSpeechSeq2Seq:
-    """
-    Pads Whisper input features and labels to the same length.
-    """
-
     def __init__(self, processor):
         self.processor = processor
-        self.processor.feature_extractor
 
     def __call__(self, features):
+        input_features = [{"input_features": f["input_features"]} for f in features]
+        batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
 
-        input_features = [
-            {
-                "input_features": feature["input_features"]
-            }
-            for feature in features
-        ]
+        label_features = [{"input_ids": f["labels"]} for f in features]
+        labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
+        labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
 
-        batch = self.processor.feature_extractor.pad(
-            input_features,
-            return_tensors="pt",
-        )
-
-        label_features = [
-            {
-                "input_ids": feature["labels"]
-            }
-            for feature in features
-        ]
-
-        labels_batch = self.processor.tokenizer.pad(
-            label_features,
-            return_tensors="pt",
-        )
-
-        labels = labels_batch["input_ids"]
-
-        # Replace padding tokens with -100 so that they
-        # are ignored by the loss function.
-        labels = labels.masked_fill(
-            labels_batch.attention_mask.ne(1),
-            -100,
-        )
-
-        # Remove BOS token if it is already present.
         if (
             labels.shape[1] > 0
-            and torch.all(
-                labels[:, 0]
-                == self.processor.tokenizer.bos_token_id
-            )
+            and torch.all(labels[:, 0] == self.processor.tokenizer.bos_token_id)
         ):
             labels = labels[:, 1:]
 
         batch["labels"] = labels
-
         return batch
 
 
@@ -408,91 +163,72 @@ def train_whisper(
     gradient_accumulation_steps: int,
     save_steps: int,
     logging_steps: int,
+    use_lora: bool,
+    dataloader_workers: int,
 ):
-    """
-    Fine-tune Whisper on the supplied dataset.
-    """
-
     print()
     print("=" * 60)
     print("Loading Whisper model")
     print("=" * 60)
     print(f"Base model: {base_model}")
 
-    model = WhisperForConditionalGeneration.from_pretrained(
-        base_model
-    )
-
-    # --------------------------------------------------------
-    # Swahili ASR configuration
-    # --------------------------------------------------------
-
+    model = WhisperForConditionalGeneration.from_pretrained(base_model)
     model.generation_config.language = "swahili"
     model.generation_config.task = "transcribe"
-
     model.config.forced_decoder_ids = None
 
-    # --------------------------------------------------------
-    # Data collator
-    # --------------------------------------------------------
+    # Optional LoRA
+    if use_lora:
+        from peft import LoraConfig, get_peft_model
+        lora_config = LoraConfig(
+            r=16,
+            lora_alpha=32,
+            target_modules=["q_proj", "v_proj"],
+            lora_dropout=0.05,
+            bias="none",
+        )
+        model = get_peft_model(model, lora_config)
+        model.print_trainable_parameters()
 
-    data_collator = DataCollatorSpeechSeq2Seq(
-        processor
-    )
+    # Gradient checkpointing needs to be enabled on the model
+    model.config.use_cache = False
+    model.gradient_checkpointing_enable()
 
-    # --------------------------------------------------------
-    # Training arguments
-    # --------------------------------------------------------
+    data_collator = DataCollatorSpeechSeq2Seq(processor)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    output_dir.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    # Device detection
+    use_cuda = torch.cuda.is_available()
+    use_fp16 = use_cuda and torch.cuda.get_device_capability(0)[0] >= 7
+    use_bf16 = use_cuda and torch.cuda.is_bf16_supported()
 
-    use_fp16 = (
-        torch.cuda.is_available()
-        and torch.cuda.get_device_capability(0)[0] >= 7
-    )
+    print(f"CUDA available: {use_cuda}")
+    print(f"Using fp16:     {use_fp16}")
+    print(f"Using bf16:     {use_bf16}")
+
+    # Warmup: smaller for small datasets
+    warmup_steps = min(500, max(50, len(dataset) // 50))
 
     training_args = Seq2SeqTrainingArguments(
         output_dir=str(output_dir),
-
         num_train_epochs=epochs,
-
         per_device_train_batch_size=batch_size,
-
-        gradient_accumulation_steps=(
-            gradient_accumulation_steps
-        ),
-
+        gradient_accumulation_steps=gradient_accumulation_steps,
         learning_rate=learning_rate,
-
-        warmup_steps=500,
-
+        warmup_steps=warmup_steps,
         logging_steps=logging_steps,
-
         save_steps=save_steps,
-
         save_total_limit=2,
-
         fp16=use_fp16,
-
+        bf16=use_bf16,
         gradient_checkpointing=True,
-
         predict_with_generate=False,
-
         remove_unused_columns=False,
-
         report_to="none",
-
-        dataloader_num_workers=2,
-
+        dataloader_num_workers=dataloader_workers,
+        dataloader_pin_memory=use_cuda,
         load_best_model_at_end=False,
     )
-
-    # --------------------------------------------------------
-    # Trainer
-    # --------------------------------------------------------
 
     trainer = Seq2SeqTrainer(
         args=training_args,
@@ -506,24 +242,14 @@ def train_whisper(
     print("=" * 60)
     print("Starting training")
     print("=" * 60)
-
     trainer.train()
-
-    # --------------------------------------------------------
-    # Save final model
-    # --------------------------------------------------------
 
     print()
     print("=" * 60)
     print("Saving model")
     print("=" * 60)
-
     trainer.save_model(str(output_dir))
-
-    processor.save_pretrained(
-        str(output_dir)
-    )
-
+    processor.save_pretrained(str(output_dir))
     print(f"Model saved to: {output_dir}")
 
 
@@ -532,241 +258,60 @@ def train_whisper(
 # ============================================================
 
 def parse_args():
-    """
-    Parse command-line arguments.
-    """
-
-    parser = argparse.ArgumentParser(
-        description="Two-stage Whisper fine-tuning"
-    )
-
-    parser.add_argument(
-        "--stage",
-        type=int,
-        choices=[1, 2],
-        required=True,
-        help="Fine-tuning stage: 1 or 2",
-    )
-
-    parser.add_argument(
-        "--csv",
-        type=Path,
-        default=None,
-        help="Path to dataset CSV",
-    )
-
-    parser.add_argument(
-        "--base-model",
-        type=str,
-        default=None,
-        help=(
-            "Base Whisper model or Stage-1 checkpoint. "
-            "Required for Stage 2 unless default is used."
-        ),
-    )
-
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=None,
-        help="Directory where the fine-tuned model is saved.",
-    )
-
-    parser.add_argument(
-        "--epochs",
-        type=int,
-        default=3,
-        help="Number of training epochs.",
-    )
-
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=1,
-        help="Training batch size per GPU.",
-    )
-
-    parser.add_argument(
-        "--learning-rate",
-        type=float,
-        default=1e-5,
-        help="Learning rate.",
-    )
-
-    parser.add_argument(
-        "--gradient-accumulation-steps",
-        type=int,
-        default=1,
-        help="Gradient accumulation steps.",
-    )
-
-    parser.add_argument(
-        "--save-steps",
-        type=int,
-        default=500,
-        help="Save checkpoint every N steps.",
-    )
-
-    parser.add_argument(
-        "--logging-steps",
-        type=int,
-        default=10,
-        help="Log training information every N steps.",
-    )
-
-    parser.add_argument(
-        "--sample",
-        type=int,
-        default=None,
-        help=(
-            "Optional number of examples to use. "
-            "Useful for testing the pipeline."
-        ),
-    )
-
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help=(
-            "Validate dataset + model paths and print the prepared "
-            "dataset size without running training."
-        ),
-    )
-
+    parser = argparse.ArgumentParser(description="Single-stage Whisper fine-tuning")
+    parser.add_argument("--csv", type=Path, default=None, help="Path to dataset CSV")
+    parser.add_argument("--base-model", type=str, default=None, help="Base Whisper model")
+    parser.add_argument("--output-dir", type=Path, default=None, help="Output directory")
+    parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--learning-rate", type=float, default=1e-5)
+    parser.add_argument("--gradient-accumulation-steps", type=int, default=2)
+    parser.add_argument("--save-steps", type=int, default=500)
+    parser.add_argument("--logging-steps", type=int, default=10)
+    parser.add_argument("--sample", type=int, default=None, help="Use only N examples")
+    parser.add_argument("--lora", action="store_true", help="Enable LoRA (fewer trainable params)")
+    parser.add_argument("--dataloader-workers", type=int, default=2)
+    parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
 
 # ============================================================
-# MAIN ENTRY POINT
+# MAIN
 # ============================================================
 
 def main():
-    """
-    Main program entry point.
-    """
-
     args = parse_args()
 
-    # --------------------------------------------------------
-    # Select stage-specific defaults
-    # --------------------------------------------------------
-
-    if args.stage == 1:
-
-        csv_path = (
-            args.csv
-            if args.csv is not None
-            else DEFAULT_STAGE1_CSV
-        )
-
-        base_model = (
-            args.base_model
-            if args.base_model is not None
-            else DEFAULT_BASE_MODEL
-        )
-
-        output_dir = (
-            args.output_dir
-            if args.output_dir is not None
-            else DEFAULT_STAGE1_OUTPUT
-        )
-
-    else:
-
-        csv_path = (
-            args.csv
-            if args.csv is not None
-            else DEFAULT_STAGE2_CSV
-        )
-
-        base_model = (
-            args.base_model
-            if args.base_model is not None
-            else str(DEFAULT_STAGE1_OUTPUT)
-        )
-
-        output_dir = (
-            args.output_dir
-            if args.output_dir is not None
-            else DEFAULT_STAGE2_OUTPUT
-        )
-
-    # --------------------------------------------------------
-    # Print configuration
-    # --------------------------------------------------------
+    csv_path = args.csv if args.csv is not None else DEFAULT_CSV
+    base_model = args.base_model if args.base_model is not None else DEFAULT_BASE_MODEL
+    output_dir = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT
 
     print()
     print("=" * 60)
-    print("WHISPER FINE-TUNING")
+    print("WHISPER FINE-TUNING (single-stage)")
     print("=" * 60)
-
-    print(f"Stage:          {args.stage}")
     print(f"Dataset:        {csv_path}")
     print(f"Base model:     {base_model}")
     print(f"Output:         {output_dir}")
     print(f"Epochs:         {args.epochs}")
     print(f"Batch size:     {args.batch_size}")
+    print(f"Grad accum:     {args.gradient_accumulation_steps}")
     print(f"Learning rate:  {args.learning_rate}")
+    print(f"LoRA:           {args.lora}")
     print("=" * 60)
 
-    # --------------------------------------------------------
-    # Validate Stage 2 base model
-    # --------------------------------------------------------
-
-    if args.stage == 2:
-
-        base_model_path = Path(base_model)
-
-        if (
-            not base_model_path.exists()
-            and "/" not in base_model
-        ):
-            raise FileNotFoundError(
-                "\nStage 2 requires the Stage 1 checkpoint.\n"
-                f"Expected checkpoint: {base_model_path}\n"
-                "\nRun Stage 1 first or provide --base-model."
-            )
-
-    # --------------------------------------------------------
-    # Load dataframe
-    # --------------------------------------------------------
-
-    df = load_dataframe(
-        csv_path=csv_path,
-        stage=args.stage,
-        sample=args.sample,
-    )
-
-    # --------------------------------------------------------
-    # Load processor
-    # --------------------------------------------------------
+    df = load_dataframe(csv_path=csv_path, sample=args.sample)
 
     print()
     print("Loading Whisper processor...")
-
     processor = WhisperProcessor.from_pretrained(
-        base_model,
-        language="swahili",
-        task="transcribe",
+        base_model, language="swahili", task="transcribe"
     )
-
-    # --------------------------------------------------------
-    # Prepare dataset
-    # --------------------------------------------------------
 
     print()
     print("Preparing audio dataset...")
-
-    dataset = prepare_dataset(
-        df=df,
-        processor=processor,
-    )
-
+    dataset = prepare_dataset(df=df, processor=processor)
     print(f"Prepared examples: {len(dataset)}")
-
-    # --------------------------------------------------------
-    # Dry run: stop before training
-    # --------------------------------------------------------
 
     if args.dry_run:
         print()
@@ -775,14 +320,8 @@ def main():
         print("=" * 60)
         print(f"Dataset rows : {len(df)}")
         print(f"Examples     : {len(dataset)}")
-        print(f"Base model   : {base_model}")
-        print(f"Output dir   : {output_dir}")
-        print("No training was run. Remove --dry-run to train.")
+        print("No training was run.")
         return
-
-    # --------------------------------------------------------
-    # Train
-    # --------------------------------------------------------
 
     train_whisper(
         dataset=dataset,
@@ -792,11 +331,11 @@ def main():
         epochs=args.epochs,
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
-        gradient_accumulation_steps=(
-            args.gradient_accumulation_steps
-        ),
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
         save_steps=args.save_steps,
         logging_steps=args.logging_steps,
+        use_lora=args.lora,
+        dataloader_workers=args.dataloader_workers,
     )
 
     print()
@@ -806,9 +345,8 @@ def main():
     print(f"Model: {output_dir}")
 
 
-# ============================================================
-# PYTHON ENTRY POINT
-# ============================================================
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()
