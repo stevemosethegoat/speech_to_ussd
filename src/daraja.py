@@ -170,10 +170,22 @@ def b2c_payment(phone: str, amount: float, result_url: str, timeout_url: str,
     }
 
     resp = requests.post(
-        f"{BASE_URL}/mpesa/b2c/v1/paymentrequest",
+        f"{BASE_URL}/mpesa/b2c/v3/paymentrequest",
         json=payload, headers=_auth_header(), timeout=15,
     )
-    return resp.json()
+    if resp.status_code != 200 or not resp.text.strip():
+        return {
+            "errorCode": f"HTTP {resp.status_code}",
+            "errorMessage": resp.text.strip() or "empty response body",
+        }
+    try:
+        return resp.json()
+    except Exception as e:
+        return {
+            "errorCode": "JSON_PARSE_ERROR",
+            "errorMessage": str(e),
+            "raw_body": resp.text[:500],
+        }
 
 
 # --- TSQ: fallback when a callback hasn't arrived in time ---------------
