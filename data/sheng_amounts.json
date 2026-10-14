@@ -1,37 +1,49 @@
 {
-    "units": {
-        "bob": 1,
-        "mbao": 20,
-        "blue": 20,
-        "mbalu": 20,
-        "dhanashara": 20,
-        "finje": 50,
-        "chuani": 50,
-        "pachas": 50,
-        "hamusini": 50,
-        "hamsini": 50,
-        "hamsa": 50,
-        "chotwe": 50,
-        "nich": 50,
-        "ngiri": 1000,
-        "thao": 1000,
-        "kapaa": 1000,
-        "ngwanye": 1000,
-        "ndovu": 1000,
-        "azar": 1000,
-        "muti": 1000,
-        "bramba": 1000,
-        "kei": 1000,
-        "k": 1000,
-        "jii": 1000,
-        "g": 1000
-    },
-    "fixed": {
-        "kidole moja": 100,
-        "mbexe": 200
-    },
-    "ignore_generic_money_words": [
-        "chapaa", "munde", "mundez", "niado", "ganji", "doe", "keroma",
-        "cheddar", "dau", "mkwanja", "makwarkwar", "cheng"
-    ]
+  "fixed": {
+    "kidole moja": 100,
+    "mbexe": 200
+  },
+  "ignore_generic_money_words": [
+    "chapaa",
+    "munde",
+    "mundez",
+    "niado",
+    "ganji",
+    "doe",
+    "keroma",
+    "cheddar",
+    "dau",
+    "mkwanja",
+    "makwarkwar",
+    "cheng"
+  ],
+  "units": {
+    "azar": 1000,
+    "blue": 20,
+    "bob": 1,
+    "bramba": 1000,
+    "chotwe": 50,
+    "chuani": 50,
+    "dhanashara": 20,
+    "finje": 50,
+    "g": 1000,
+    "hamsa": 50,
+    "hamsini": 50,
+    "hamusini": 50,
+    "jii": 1000,
+    "k": 1000,
+    "kapaa": 1000,
+    "kei": 1000,
+    "mbalu": 20,
+    "mbao": 20,
+    "muti": 1000,
+    "ndovu": 1000,
+    "ngiri": 1000,
+    "ngwanye": 1000,
+    "nich": 50,
+    "pacha": 50,
+    "pachas": 50,
+    "punch": 500,
+    "thao": 1000
+  }
 }

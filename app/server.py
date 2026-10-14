@@ -704,6 +704,12 @@ class TraceHandler(BaseHTTPRequestHandler):
             amount = float(payload.get("amount") or 0)
             phone  = str(payload.get("phone") or "").strip()
             real_intent = str(payload.get("intent") or "DEMO_SEND_MONEY")
+
+            # ?simulate=false disables the auto-callback so the caller
+            # (e.g. trace_wiring.py) can drive the callbacks itself.
+            from urllib.parse import parse_qs as _pqs
+            _qs = _pqs(self.path.split("?", 1)[-1])
+            _skip_sim = _qs.get("simulate", ["true"])[0].lower() == "false"
             if not amount or not phone:
                 return self._json_response(
                     {"success": False, "message": "missing amount or phone"},
@@ -797,7 +803,7 @@ class TraceHandler(BaseHTTPRequestHandler):
             # should honestly wait for a real callback — or time out.
             # Remove this whole block when integrating with real Safaricom.
             import threading, time as _time
-            _should_simulate = real_intent == "SEND_MONEY"
+            _should_simulate = real_intent == "SEND_MONEY" and not _skip_sim
 
             def _simulate_callback():
                 _time.sleep(5)
@@ -829,6 +835,14 @@ class TraceHandler(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802
         path = self.path.split("?")[0]
 
+        if path == "/health":
+            content = b'{"status":"ok"}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
         if path == "/" or path == "/index.html":
             static_index = Path(__file__).parent / "static" / "Index.html"
             if static_index.exists():
