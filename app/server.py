@@ -703,6 +703,7 @@ class TraceHandler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b"{}")
             amount = float(payload.get("amount") or 0)
             phone  = str(payload.get("phone") or "").strip()
+            real_intent = str(payload.get("intent") or "DEMO_SEND_MONEY")
             if not amount or not phone:
                 return self._json_response(
                     {"success": False, "message": "missing amount or phone"},
@@ -748,7 +749,7 @@ class TraceHandler(BaseHTTPRequestHandler):
 
             from src.transactions import put as tx_put
             tx_put(ref, {
-                "intent": "DEMO_SEND_MONEY",
+                "intent": real_intent,
                 "slots": {"amount": amount, "phone": target},
                 "status": "REQUESTING_STK",
                 "amount": amount,
@@ -767,7 +768,7 @@ class TraceHandler(BaseHTTPRequestHandler):
             except Exception as exc:
                 # Record the failure but still return the ref
                 tx_put(ref, {
-                    "intent": "DEMO_SEND_MONEY",
+                    "intent": real_intent,
                     "slots": {"amount": amount, "phone": target},
                     "status": "STK_REQUEST_FAILED",
                     "error": str(exc),
@@ -782,7 +783,7 @@ class TraceHandler(BaseHTTPRequestHandler):
 
             # Update the tx with the CheckoutRequestID
             tx_put(ref, {
-                "intent": "DEMO_SEND_MONEY",
+                "intent": real_intent,
                 "slots": {"amount": amount, "phone": target},
                 "status": "AWAITING_CALLBACK",
                 "checkout_request_id": r.get("CheckoutRequestID"),
@@ -791,10 +792,13 @@ class TraceHandler(BaseHTTPRequestHandler):
                 "phone": target,
             })
 
-            # DEMO ONLY: schedule a simulated callback 5s from now so the
-            # UI polling sees state advance without a manual curl.
-            # Remove this when integrating with real Safaricom.
+            # DEMO ONLY: simulate the callback ONLY when the intent is
+            # SEND_MONEY. For BUY_AIRTIME / PAY_BILL / BUY_GOODS, the UI
+            # should honestly wait for a real callback — or time out.
+            # Remove this whole block when integrating with real Safaricom.
             import threading, time as _time
+            _should_simulate = real_intent == "SEND_MONEY"
+
             def _simulate_callback():
                 _time.sleep(5)
                 from src.transactions import update as _update
@@ -803,7 +807,8 @@ class TraceHandler(BaseHTTPRequestHandler):
                 _update(ref, status="COMPLETED",
                         last_callback={"ResultCode": 0,
                                        "MpesaReceiptNumber": "DEMO-" + ref[-6:].upper()})
-            threading.Thread(target=_simulate_callback, daemon=True).start()
+            if _should_simulate:
+                threading.Thread(target=_simulate_callback, daemon=True).start()
 
             ok = str(r.get("ResponseCode")) == "0"
             return self._json_response({

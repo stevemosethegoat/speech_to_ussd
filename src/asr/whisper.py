@@ -18,6 +18,13 @@ import re
 import tempfile
 import subprocess
 
+# Sheng post-processing
+try:
+    from src.sheng_normalize import normalize_sheng, extract_amounts
+except ImportError:
+    normalize_sheng = None
+    extract_amounts = None
+
 FINETUNED_MODEL_DIR = Path("models/whisper_finetuned")
 CT2_MODEL_DIR = Path("models/whisper_swahili_ct2")
 DEFAULT_MODEL = "small"
@@ -99,6 +106,46 @@ def _deduplicate_repeats(text: str) -> str:
     return text.strip()
 
 
+
+
+def _build_sheng_hotwords() -> str:
+    """Build the Whisper hotword string from sheng_amounts + contacts.
+
+    Trimmed to the most critical terms to stay under Whisper's token limit
+    (~223 tokens total, including the prompt).
+    """
+    try:
+        import json
+        from pathlib import Path
+        sheng = json.loads(Path("data/sheng_amounts.json").read_text())
+        contacts = json.loads(Path("data/contacts.json").read_text())
+
+        terms = []
+        # Core transaction verbs
+        terms += ["tuma", "lipa", "weka", "toa", "angalia", "send", "pay", "check"]
+        # Top money units
+        terms += ["bob", "mbao", "ngiri", "thao", "chapaa", "shillings"]
+        # M-Pesa products
+        terms += ["M-Pesa", "fuliza", "M-Shwari", "paybill", "till", "account"]
+        # Contact names
+        terms += list(contacts.keys())
+        # Anything else from sheng_amounts (limited)
+        for k in list(sheng.get("units", {}).keys())[:8]:
+            terms.append(k)
+
+        # Deduplicate while preserving order
+        seen = set()
+        out = []
+        for t in terms:
+            if t.lower() not in seen:
+                seen.add(t.lower())
+                out.append(t)
+
+        return " ".join(out)
+    except Exception:
+        return "tuma lipa send pay mbao ngiri thao M-Pesa"
+
+
 def transcribe(
     audio_path,
     model_size: str = DEFAULT_MODEL,
@@ -140,11 +187,16 @@ def transcribe(
             compression_ratio_threshold=2.4,
             temperature=0.0,
             without_timestamps=True,
+            hotwords=_build_sheng_hotwords(),
         )
 
         parts = [seg.text.strip() for seg in segments if seg.text.strip()]
         text = " ".join(parts).strip()
         text = _deduplicate_repeats(text)
+
+        # Sheng post-processing: normalize misspellings + numbers
+        if normalize_sheng is not None:
+            text = normalize_sheng(text)
 
     except Exception as e:
         print(f"Warning: transcription failed: {e}")

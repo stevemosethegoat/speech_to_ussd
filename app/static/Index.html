@@ -2166,7 +2166,10 @@ async function completeTransaction() {
                             currentTransaction.phone,
 
                         recipient:
-                            currentTransaction.recipient
+                            currentTransaction.recipient,
+
+                        intent:
+                            currentTransaction.action || "SEND_MONEY"
 
                     })
 

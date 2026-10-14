@@ -69,3 +69,23 @@ models/vectorizer.pkl
 # Stray files from typos
 1
 john
+
+# Sheng/microphone assets
+data/paza-ct2/
+models/paza-ct2/
+models/whisper_sheng/
+data/sheng_labels.csv
+data/processed/sheng_train.csv
+
+# Runtime
+data/.token_cache.json
+__pycache__/
+*.pyc
+
+# Backups
+*.bak
+*.bak.*
+
+# Colab scratch
+colab_upload/
+*.zip
