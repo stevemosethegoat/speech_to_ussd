@@ -107,6 +107,29 @@ def stk_push(phone: str, amount: float, callback_url: str,
       - TransactionDesc   max 13 characters
       - Content-Type must be application/json (set in _auth_header)
     """
+
+    # --- Client-side validation ---
+    try:
+        amt = float(amount)
+    except (TypeError, ValueError):
+        return {"errorCode": "LOCAL_INVALID_AMOUNT",
+                "errorMessage": f"amount must be numeric, got {amount!r}"}
+    if amt <= 0:
+        return {"errorCode": "LOCAL_INVALID_AMOUNT",
+                "errorMessage": f"amount must be > 0, got {amt}"}
+    if amt != int(amt):
+        return {"errorCode": "LOCAL_INVALID_AMOUNT",
+                "errorMessage": f"amount must be an integer KES value, got {amt}"}
+
+    phone_str = "".join(ch for ch in str(phone) if ch.isdigit())
+    if not phone_str.startswith("254") or len(phone_str) != 12:
+        return {"errorCode": "LOCAL_INVALID_PHONE",
+                "errorMessage": f"phone must be 254XXXXXXXXX (12 digits), got {phone!r}"}
+
+    if not callback_url.startswith("https://"):
+        return {"errorCode": "LOCAL_INVALID_CALLBACK",
+                "errorMessage": f"callback_url must be HTTPS, got {callback_url!r}"}
+
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     password = base64.b64encode(
         f"{SHORTCODE}{PASSKEY}{timestamp}".encode()

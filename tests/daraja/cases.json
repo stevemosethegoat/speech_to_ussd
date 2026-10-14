@@ -1,0 +1,26 @@
+{
+  "stk_push": [
+    {
+      "name": "valid STK Push to fixed phone",
+      "input": {"phone": "254708374149", "amount": 1, "account_ref": "TEST01"},
+      "expect": {"ResponseCode": "0"}
+    },
+    {
+      "name": "zero amount should be rejected",
+      "input": {"phone": "254708374149", "amount": 0, "account_ref": "TEST02"},
+      "expect": {"error": true}
+    },
+    {
+      "name": "invalid phone (missing country code)",
+      "input": {"phone": "0712345678", "amount": 1, "account_ref": "TEST03"},
+      "expect": {"error_or_normalized": true}
+    }
+  ],
+  "auth": [
+    {
+      "name": "auth returns a token",
+      "input": {},
+      "expect": {"has_token": true}
+    }
+  ]
+}
